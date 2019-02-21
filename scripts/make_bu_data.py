@@ -29,6 +29,9 @@ infiles = ['trainval/karpathy_test_resnet101_faster_rcnn_genome.tsv',
           'trainval/karpathy_train_resnet101_faster_rcnn_genome.tsv.0', \
            'trainval/karpathy_train_resnet101_faster_rcnn_genome.tsv.1']
 
+#infiles = ['trainval_36/trainval_resnet101_faster_rcnn_genome_36.tsv']
+
+
 os.makedirs(args.output_dir+'_att')
 os.makedirs(args.output_dir+'_fc')
 os.makedirs(args.output_dir+'_box')

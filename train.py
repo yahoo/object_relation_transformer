@@ -133,6 +133,8 @@ def train(opt):
         fc_feats, att_feats, labels, masks, att_masks = tmp
         
         optimizer.zero_grad()
+        #import IPython; IPython.embed()
+        
         if not sc_flag:
             loss = crit(dp_model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:])
         else:
@@ -191,8 +193,9 @@ def train(opt):
 
             # Write validation result into summary
             add_summary_value(tb_summary_writer, 'validation loss', val_loss, iteration)
-            for k,v in lang_stats.items():
-                add_summary_value(tb_summary_writer, k, v, iteration)
+            if lang_stats:
+                for k,v in lang_stats.items():
+                    add_summary_value(tb_summary_writer, k, v, iteration)
             val_result_history[iteration] = {'loss': val_loss, 'lang_stats': lang_stats, 'predictions': predictions}
 
             # Save model if is improving on validation result
@@ -206,6 +209,9 @@ def train(opt):
                 if best_val_score is None or current_score > best_val_score:
                     best_val_score = current_score
                     best_flag = True
+
+                if not os.path.isdir(opt.checkpoint_path):
+                    os.makedirs(opt.checkpoint_path)
                 checkpoint_path = os.path.join(opt.checkpoint_path, 'model.pth')
                 torch.save(model.state_dict(), checkpoint_path)
                 print("model saved to {}".format(checkpoint_path))
