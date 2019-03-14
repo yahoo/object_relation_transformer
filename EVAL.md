@@ -1,11 +1,12 @@
 ## Eval
 To run evaluation, run `eval.py` with arguments
-```bash
---model (path to trained model checkpoint)
---image_root (base_dir of your val_data)
---num_images  (-1 runs on all images)
---dump_images  (if 1 sample of images and captions are dumped to the vis directory. if 0 not.)
-```
+
+
+* `model` (`str`): path to trained model checkpoint.
+* `image_root` (`str`): path to base_dir of your validation data.
+* `num_images` (`int`): if set to -1 runs on all images.
+* `dump_images` (`int`): if set to 1, a sample of image captions is dumped to the vis dir. If set to 0 nothing happens.
+
 example:
 ```bash 
 python eval.py --dump_images 1 --num_images 5000 --model /efs/home/sherdade/experiments/captioning/simao-adaptive-bottom-up-features-transformer-model/model-best.pth --infos_path /efs/home/sherdade/experiments/captioning/simao-adaptive-bottom-up-features-transformer-model/infos_fc_transformer_bu_adaptive-best.pkl --language_eval 1 --image_root /mydisk/Data/captioning_data/coco/
