@@ -14,7 +14,7 @@ To run evaluation, run `eval.py` with arguments
 
 example:
 ```bash 
-python eval.py --dump_images 1 --num_images 5000 --model /efs/home/sherdade/experiments/captioning/simao-adaptive-bottom-up-features-transformer-model/model-best.pth --infos_path /efs/home/sherdade/experiments/captioning/simao-adaptive-bottom-up-features-transformer-model/infos_fc_transformer_bu_adaptive-best.pkl --language_eval 1 --image_root /mydisk/Data/captioning_data/coco/
+python eval.py --dump_images 1 --num_images 100 --model /efs/home/sherdade/experiments/captioning/simao-adaptive-bottom-up-features-transformer-model/model-best.pth --infos_path /efs/home/sherdade/experiments/captioning/simao-adaptive-bottom-up-features-transformer-model/infos_fc_transformer_bu_adaptive-best.pkl --language_eval 1 --image_root /mydisk/Data/captioning_data/coco/
 ```
 
 ## Visualize sample
