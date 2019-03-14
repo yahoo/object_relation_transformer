@@ -1,4 +1,4 @@
-## Single Model vs Ensemble
+## One Model vs Ensemble
 After training, you will have two checkpoints under `--output_dir`: `model.pth`, and `model-best.pth`.
 
 `model-best.pth` is an ensemble of several training checkpoints.
