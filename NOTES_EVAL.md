@@ -1,5 +1,6 @@
 After training a model, you'll get two checkpoints under `--output_dir`: `model.pth`, and `model-best.pth`.
-The `model-best.pth` is an ensemble of the several training checkpoints.
+
+The `model-best.pth` is an ensemble of several training checkpoints.
 
 ## Eval
 To run evaluation, run `eval.py` with arguments
