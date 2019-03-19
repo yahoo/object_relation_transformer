@@ -9,7 +9,7 @@ python scripts/prepro_labels.py --input_json data/dataset_coco.json --output_jso
 ```
 
 ## Download ResNet Weights
-*Download weights from [https://drive.google.com/drive/folders/0B7fNdx_jAqhtbVYzOURMdDNHSGM](here).
+*Download weights from [here](https://drive.google.com/drive/folders/0B7fNdx_jAqhtbVYzOURMdDNHSGM).
 *Copy to data/imagenet_weights (folder should be created)
 
 ## Get COCO data
