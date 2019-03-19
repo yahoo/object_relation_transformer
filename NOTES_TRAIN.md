@@ -36,7 +36,7 @@ Note: you need to add the current directory to your PYTHONPATH to get this to wo
 ```
 python train.py --id fc --caption_model fc --input_json data/cocotalk.json --input_fc_dir /mnt/bigdisk/data/cocotalk_fc --input_att_dir /mnt/bigdisk/data/cocotalk_att --input_label_h5 data/cocotalk_label.h5 --batch_size 10 --learning_rate 5e-4 --learning_rate_decay_start 0 --scheduled_sampling_start 0 --checkpoint_path expt001-resnet101-features-fc-model  --save_checkpoint_every 6000 --val_images_use 5000 --max_epochs 30  --language_eval 1
 ```
-Note: need to make shared memory writeable as suggested by [https://stackoverflow.com/questions/2009278/python-multiprocessing-permission-denied](https://stackoverflow.com/questions/2009278/python-multiprocessing-permission-denied)
+Note: need to make shared memory writeable as suggested by [this](https://stackoverflow.com/questions/2009278/python-multiprocessing-permission-denied)
 Note: this appears to only work with a single GPU (export CUDA_VISIBLE_DEVICES="0")
 
 ## Generate bottom-up features (adaptive)
