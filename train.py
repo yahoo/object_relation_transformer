@@ -119,7 +119,7 @@ def train(opt):
                 sc_flag = False
 
             epoch_done = False
-                
+
         start = time.time()
         # Load data from train split (0)
         data = loader.get_batch('train')
@@ -128,15 +128,34 @@ def train(opt):
         torch.cuda.synchronize()
         start = time.time()
 
-        tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks'], data['att_masks']]
+        #tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks'], data['att_masks']]
+        #tmp = [_ if _ is None else torch.from_numpy(_).cuda() for _ in tmp]
+        #fc_feats, att_feats, labels, masks, att_masks = tmp
+
+        #SIMAO
+        tmp = [data['boxes'], data['fc_feats'], data['att_feats'], data['labels'], data['masks'], data['att_masks']]
         tmp = [_ if _ is None else torch.from_numpy(_).cuda() for _ in tmp]
-        fc_feats, att_feats, labels, masks, att_masks = tmp
-        
+        boxes, fc_feats, att_feats, labels, masks, att_masks = tmp
+        #vertical_boxes_feats, horizontal_box_feats = utils.torch_get_box_feats(boxes,200)
+        device= att_feats.device
+        vertical_boxes_feats, horizontal_box_feats = utils.get_box_feats(boxes.cpu().numpy(),2048)
+        vertical_boxes_feats= torch.from_numpy(vertical_boxes_feats).cuda()
+        #vertical_boxes_feats= vertical_boxes_feats.to(device)
+        vertical_boxes_feats=vertical_boxes_feats.type(torch.cuda.FloatTensor)
+        horizontal_box_feats= torch.from_numpy(horizontal_box_feats).cuda()
+        #horizontal_box_feats= horizontal_box_feats.to(device)
+        horizontal_box_feats=horizontal_box_feats.type(torch.cuda.FloatTensor)
+        #print('TIPO:',att_feats.type())
+        #input_feats= torch.cat([att_feats, horizontal_box_feats, vertical_boxes_feats],dim=-1)
+        #SIMAO
+        input_feats= att_feats + horizontal_box_feats + 2*vertical_boxes_feats
+
         optimizer.zero_grad()
         #import IPython; IPython.embed()
-        
+
         if not sc_flag:
-            loss = crit(dp_model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:])
+            #loss = crit(dp_model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:])
+            loss = crit(dp_model(fc_feats, input_feats, labels, att_masks), labels[:,1:], masks[:,1:])
         else:
             gen_result, sample_logprobs = dp_model(fc_feats, att_feats, att_masks, opt={'sample_max':0}, mode='sample')
             reward = get_self_critical_reward(dp_model, fc_feats, att_feats, att_masks, data, gen_result, opt)
