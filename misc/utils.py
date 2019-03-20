@@ -230,8 +230,8 @@ def get_box_feats(boxes, d):
                 box_wfeats[i,j]+=w_vector
     return(box_hfeats, box_wfeats)
 
-def get_box_area(arr):
-    return((arr[2]-arr[0])*(arr[3]-arr[1]))
+def get_box_areas(arr):
+    return((arr[:,2]-arr[:,0])*(arr[:,3]-arr[:,1]))
 
 def torch_get_box_feats(boxes, d):
     device = boxes.device

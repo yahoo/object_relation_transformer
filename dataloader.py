@@ -223,11 +223,15 @@ class DataLoader(data.Dataset):
                 #SIMAO
                 box_file = os.path.join(self.rel_bboxes_dir,str(self.info['images'][ix]['id']) + '.npy')
                 box_feat = np.load(box_file)
-                box_feat_with_area = np.append(box_feat, utils.get_box_area(box_feat))
+                areas = np.expand_dims(utils.get_box_areas(box_feat), axis=1)
+
+                box_feat_with_area = np.concatenate([box_feat, areas],axis=-1)
                 box_feat = box_feat_with_area
                 #SIMAO
+
                 if self.norm_box_feat:
                     box_feat = box_feat / np.linalg.norm(box_feat, 2, 1, keepdims=True)
+
                 att_feat = np.hstack([att_feat, box_feat])
                 # sort the features by the size of boxes
                 att_feat = np.stack(sorted(att_feat, key=lambda x:x[-1], reverse=True))

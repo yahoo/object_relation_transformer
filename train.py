@@ -148,7 +148,7 @@ def train(opt):
         #print('TIPO:',att_feats.type())
         #input_feats= torch.cat([att_feats, horizontal_box_feats, vertical_boxes_feats],dim=-1)
         #SIMAO
-        input_feats= att_feats + horizontal_box_feats + 2*vertical_boxes_feats
+        input_feats= att_feats
 
         optimizer.zero_grad()
         #import IPython; IPython.embed()
