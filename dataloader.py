@@ -219,7 +219,6 @@ class DataLoader(data.Dataset):
                 #x1,y1,x2,y2 = np.hsplit(box_feat, 4)
                 #h,w = self.info['images'][ix]['height'], self.info['images'][ix]['width']
                 #box_feat = np.hstack((x1/w, y1/h, x2/w, y2/h, (x2-x1)*(y2-y1)/(w*h))) # question? x2-x1+1??
-                #BEORE
 
                 #SIMAO
                 box_file = os.path.join(self.rel_bboxes_dir,str(self.info['images'][ix]['id']) + '.npy')
