@@ -230,6 +230,29 @@ def get_box_feats(boxes, d):
                 box_wfeats[i,j]+=w_vector
     return(box_hfeats, box_wfeats)
 
+def single_image_get_box_feats(boxes, d):
+    h = boxes.shape[0]
+    boxes_times_d = (d*boxes).astype(np.int32)
+    boxes_wmin = boxes_times_d[:,0]
+    boxes_wmax = boxes_times_d[:,2]
+    boxes_hmin = boxes_times_d[:,1]
+    boxes_hmax = boxes_times_d[:,3]
+
+    box_hfeats = np.zeros((h,d))
+    for i in range(h):
+        #for j in range(w):
+            if not np.all(boxes_times_d[i]==np.zeros(4)):
+                h_vector = np.concatenate([np.zeros(boxes_hmin[i]), np.ones(boxes_hmax[i]-boxes_hmin[i]), np.zeros(d-boxes_hmax[i])])
+                box_hfeats[i]+=h_vector
+
+    box_wfeats = np.zeros((h,d))
+    for i in range(h):
+        #for j in range(w):
+            if not np.all(boxes_times_d[i]==np.zeros(4)):
+                w_vector = np.concatenate([np.zeros(boxes_wmin[i]), np.ones(boxes_wmax[i]-boxes_wmin[i]), np.zeros(d-boxes_wmax[i])])
+                box_wfeats[i]+=w_vector
+    return(box_hfeats, box_wfeats)
+
 def get_box_areas(arr):
     return((arr[:,2]-arr[:,0])*(arr[:,3]-arr[:,1]))
 

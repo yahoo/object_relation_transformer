@@ -34,7 +34,7 @@ class DataLoader(data.Dataset):
         self.opt = opt
         self.batch_size = self.opt.batch_size
         self.seq_per_img = opt.seq_per_img
-
+        self.box_feats_size = 1024
         # feature related options
         self.use_att = getattr(opt, 'use_att', True)
         self.use_box = getattr(opt, 'use_box', 0)
@@ -226,15 +226,27 @@ class DataLoader(data.Dataset):
                 areas = np.expand_dims(utils.get_box_areas(box_feat), axis=1)
 
                 box_feat_with_area = np.concatenate([box_feat, areas],axis=-1)
-                box_feat = box_feat_with_area
+                #box_feat = box_feat_with_area
                 #SIMAO
+
+                #SIMAO boxes
+                vertical_box_feats, horizontal_box_feats = utils.single_image_get_box_feats(box_feat,self.box_feats_size)
+                #
+
 
                 if self.norm_box_feat:
                     box_feat = box_feat / np.linalg.norm(box_feat, 2, 1, keepdims=True)
+                    #SIMAO
+                    vertical_box_feats= vertical_box_feats / np.linalg.norm(vertical_box_feats, 2, 1, keepdims=True)
+                    horizontal_box_feats= horizontal_box_feats / np.linalg.norm(horizontal_box_feats, 2, 1, keepdims=True)
+                    #SIMAO
 
-                att_feat = np.hstack([att_feat, box_feat])
+                #SIMAO
+                att_feat = np.hstack([att_feat, horizontal_box_feats, vertical_box_feats])
+                #SIMAO
+                #att_feat = np.hstack([att_feat, box_feat])
                 # sort the features by the size of boxes
-                att_feat = np.stack(sorted(att_feat, key=lambda x:x[-1], reverse=True))
+                #att_feat = np.stack(sorted(att_feat, key=lambda x:x[-1], reverse=True))
         else:
             att_feat = np.zeros((1,1,1))
         return (np.load(os.path.join(self.input_fc_dir, str(self.info['images'][ix]['id']) + '.npy')),
