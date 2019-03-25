@@ -11,7 +11,7 @@ def parse_opt():
                     help='path to the directory containing the preprocessed att feats')
     parser.add_argument('--input_box_dir', type=str, default='data/cocotalk_box',
                     help='path to the directory containing the boxes of att feats')
-    parser.add_argument('--input_rel_box_dir',type=str, default='/mydisk/Data/captioning_data/cocobu_adaptive_box_relative/', 
+    parser.add_argument('--input_rel_box_dir',type=str, default='/mydisk/Data/captioning_data/cocobu_adaptive_box_relative/',
                     help="this directory contains the bboxes in relative coordinates for the corresponding image features in --input_att_dir")
     parser.add_argument('--input_label_h5', type=str, default='data/coco_label.h5',
                     help='path to the h5file containing the preprocessed dataset')
@@ -42,6 +42,8 @@ def parse_opt():
                     help='2048 for resnet, 4096 for vgg')
     parser.add_argument('--att_feat_size', type=int, default=2048,
                     help='2048 for resnet, 512 for vgg')
+    parser.add_argument('--box_as_feats_size', type=int, default=50,
+                    help='each box is represented as two 01 vectors of length 50')
     parser.add_argument('--logit_layers', type=int, default=1,
                     help='number of layers in the RNN')
 
