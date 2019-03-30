@@ -34,7 +34,7 @@ class DataLoader(data.Dataset):
         self.opt = opt
         self.batch_size = self.opt.batch_size
         self.seq_per_img = opt.seq_per_img
-        self.box_feats_size = 1024
+        self.box_feats_size = opt.box_as_feats_size
         # feature related options
         self.use_att = getattr(opt, 'use_att', True)
         self.use_box = getattr(opt, 'use_box', 0)
@@ -134,15 +134,16 @@ class DataLoader(data.Dataset):
         boxes_batch=[]
         for i in range(batch_size):
             # fetch image
-            tmp_fc, tmp_att,\
+            #SIMAO added tmp_box_coords
+            tmp_fc, tmp_att,tmp_box_coords,\
                 ix, tmp_wrapped = self._prefetch_process[split].get()
             fc_batch.append(tmp_fc)
             att_batch.append(tmp_att)
-
+            boxes_batch.append(tmp_box_coords)
             #SIMAO
-            box_file = os.path.join(self.rel_bboxes_dir,str(self.info['images'][ix]['id']) + '.npy')
-            box_rel_coords = np.load(box_file)
-            boxes_batch.append(box_rel_coords)
+            #box_file = os.path.join(self.rel_bboxes_dir,str(self.info['images'][ix]['id']) + '.npy')
+            #box_rel_coords = np.load(box_file)
+            #boxes_batch.append(box_rel_coords)
             #SIMAO
 
             label_batch[i * seq_per_img : (i + 1) * seq_per_img, 1 : self.seq_length + 1] = self.get_captions(ix, seq_per_img)
@@ -222,27 +223,27 @@ class DataLoader(data.Dataset):
 
                 #SIMAO
                 box_file = os.path.join(self.rel_bboxes_dir,str(self.info['images'][ix]['id']) + '.npy')
-                box_feat = np.load(box_file)
-                areas = np.expand_dims(utils.get_box_areas(box_feat), axis=1)
+                box_coords = np.load(box_file)
+                areas = np.expand_dims(utils.get_box_areas(box_coords), axis=1)
 
-                box_feat_with_area = np.concatenate([box_feat, areas],axis=-1)
+                box_coords_with_area = np.concatenate([box_coords, areas],axis=-1)
                 #box_feat = box_feat_with_area
                 #SIMAO
 
                 #SIMAO boxes
-                vertical_box_feats, horizontal_box_feats = utils.single_image_get_box_feats(box_feat,self.box_feats_size)
+                #vertical_box_feats, horizontal_box_feats = utils.single_image_get_box_feats(box_feat,self.box_feats_size)
                 #
 
 
-                if self.norm_box_feat:
-                    box_feat = box_feat / np.linalg.norm(box_feat, 2, 1, keepdims=True)
+                #if self.norm_box_feat:
+                    #box_feat = box_feat / np.linalg.norm(box_feat, 2, 1, keepdims=True)
                     #SIMAO
-                    vertical_box_feats= vertical_box_feats / np.linalg.norm(vertical_box_feats, 2, 1, keepdims=True)
-                    horizontal_box_feats= horizontal_box_feats / np.linalg.norm(horizontal_box_feats, 2, 1, keepdims=True)
+                    #vertical_box_feats= vertical_box_feats / np.linalg.norm(vertical_box_feats, 2, 1, keepdims=True)
+                    #horizontal_box_feats= horizontal_box_feats / np.linalg.norm(horizontal_box_feats, 2, 1, keepdims=True)
                     #SIMAO
 
                 #SIMAO
-                att_feat = np.hstack([att_feat, horizontal_box_feats, vertical_box_feats])
+                #att_feat = np.hstack([att_feat, horizontal_box_feats, vertical_box_feats])
                 #SIMAO
                 #att_feat = np.hstack([att_feat, box_feat])
                 # sort the features by the size of boxes
@@ -251,6 +252,7 @@ class DataLoader(data.Dataset):
             att_feat = np.zeros((1,1,1))
         return (np.load(os.path.join(self.input_fc_dir, str(self.info['images'][ix]['id']) + '.npy')),
                 att_feat,
+                box_coords,
                 ix)
 
     def __len__(self):
@@ -323,6 +325,8 @@ class BlobFetcher():
         if wrapped:
             self.reset()
 
-        assert tmp[2] == ix, "ix not equal"
+        #SIMAO
+        assert tmp[-1] == ix, "ix not equal"
+        #assert tmp[2] == ix, "ix not equal"
 
         return tmp + [wrapped]

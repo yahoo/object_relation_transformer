@@ -37,9 +37,6 @@ def train(opt):
 
 
     loader = DataLoader(opt)
-    #SIMAO
-    if opt.use_box: opt.att_feat_size = opt.att_feat_size + 2*loader.box_feats_size
-    #SIMAO
 
     opt.vocab_size = loader.vocab_size
     opt.seq_length = loader.seq_length
@@ -88,7 +85,7 @@ def train(opt):
     rl_crit = utils.RewardCriterion()
 
     if opt.noamopt:
-        assert opt.caption_model == 'transformer', 'noamopt can only work with transformer'
+        assert opt.caption_model == 'transformer' or opt.caption_model == 'relation_transformer', 'noamopt can only work with transformer'
         optimizer = utils.get_std_opt(model, factor=opt.noamopt_factor, warmup=opt.noamopt_warmup)
         optimizer._step = iteration
     elif opt.reduce_on_plateau:
@@ -134,26 +131,12 @@ def train(opt):
         torch.cuda.synchronize()
         start = time.time()
 
-        #tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks'], data['att_masks']]
-        #tmp = [_ if _ is None else torch.from_numpy(_).cuda() for _ in tmp]
-        #fc_feats, att_feats, labels, masks, att_masks = tmp
 
         #SIMAO
         tmp = [data['boxes'], data['fc_feats'], data['att_feats'], data['labels'], data['masks'], data['att_masks']]
         tmp = [_ if _ is None else torch.from_numpy(_).cuda() for _ in tmp]
         boxes, fc_feats, att_feats, labels, masks, att_masks = tmp
-        #vertical_boxes_feats, horizontal_box_feats = utils.torch_get_box_feats(boxes,200)
-        device= att_feats.device
-        vertical_boxes_feats, horizontal_box_feats = utils.get_box_feats(boxes.cpu().numpy(),2048)
-        vertical_boxes_feats= torch.from_numpy(vertical_boxes_feats).cuda()
-        #vertical_boxes_feats= vertical_boxes_feats.to(device)
-        vertical_boxes_feats=vertical_boxes_feats.type(torch.cuda.FloatTensor)
-        horizontal_box_feats= torch.from_numpy(horizontal_box_feats).cuda()
-        #horizontal_box_feats= horizontal_box_feats.to(device)
-        horizontal_box_feats=horizontal_box_feats.type(torch.cuda.FloatTensor)
-        #print('TIPO:',att_feats.type())
-        #input_feats= torch.cat([att_feats, horizontal_box_feats, vertical_boxes_feats],dim=-1)
-        #SIMAO
+
         input_feats= att_feats
 
         optimizer.zero_grad()
@@ -161,7 +144,7 @@ def train(opt):
 
         if not sc_flag:
             #loss = crit(dp_model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:])
-            loss = crit(dp_model(fc_feats, input_feats, labels, att_masks), labels[:,1:], masks[:,1:])
+            loss = crit(dp_model(fc_feats, att_feats, boxes, labels, att_masks), labels[:,1:], masks[:,1:])
         else:
             gen_result, sample_logprobs = dp_model(fc_feats, att_feats, att_masks, opt={'sample_max':0}, mode='sample')
             reward = get_self_critical_reward(dp_model, fc_feats, att_feats, att_masks, data, gen_result, opt)
