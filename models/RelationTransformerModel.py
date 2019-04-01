@@ -500,42 +500,9 @@ class RelationTransformerModel(CaptionModel):
     def _forward(self, fc_feats, att_feats, boxes,  seq, att_masks=None):
         att_feats, boxes, seq, att_masks, seq_mask = self._prepare_feature(att_feats, att_masks, boxes, seq)
         out = self.model(att_feats, boxes, seq, att_masks, seq_mask)
-
-        # batch_size = fc_feats.size(0)
-        # state = self.init_hidden(batch_size)
-
-        # # outputs = []
-        # outputs = fc_feats.new_zeros(batch_size, seq.size(1) - 1, self.vocab_size+1)
-
-        # fc_feats, att_feats, p_att_feats = self._prepare_feature(fc_feats, att_feats, att_masks)
-
-        # for i in range(seq.size(1) - 1):
-        #     if self.training and i >= 1 and self.ss_prob > 0.0: # otherwiste no need to sample
-        #         sample_prob = fc_feats.new(batch_size).uniform_(0, 1)
-        #         sample_mask = sample_prob < self.ss_prob
-        #         if sample_mask.sum() == 0:
-        #             it = seq[:, i].clone()
-        #         else:
-        #             sample_ind = sample_mask.nonzero().view(-1)
-        #             it = seq[:, i].data.clone()
-        #             #prob_prev = torch.exp(outputs[-1].data.index_select(0, sample_ind)) # fetch prev distribution: shape Nx(M+1)
-        #             #it.index_copy_(0, sample_ind, torch.multinomial(prob_prev, 1).view(-1))
-        #             # prob_prev = torch.exp(outputs[-1].data) # fetch prev distribution: shape Nx(M+1)
-        #             prob_prev = torch.exp(outputs[:, i-1].detach()) # fetch prev distribution: shape Nx(M+1)
-        #             it.index_copy_(0, sample_ind, torch.multinomial(prob_prev, 1).view(-1).index_select(0, sample_ind))
-        #     else:
-        #         it = seq[:, i].clone()
-        #     # break if all the sequences end
-        #     if i >= 1 and seq[:, i].sum() == 0:
-        #         break
-
-        #     output, state = self.get_logprobs_state(it, fc_feats, att_feats, p_att_feats, att_masks, state)
-        #     outputs[:, i] = output
-        #     # outputs.append(output)
-
         outputs = self.model.generator(out)
         return outputs
-        # return torch.cat([_.unsqueeze(1) for _ in outputs], 1)
+
 
     def get_logprobs_state(self, it, memory, mask, state):
         """

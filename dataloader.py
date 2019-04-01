@@ -134,17 +134,15 @@ class DataLoader(data.Dataset):
         boxes_batch=[]
         for i in range(batch_size):
             # fetch image
-            #SIMAO added tmp_box_coords
-            tmp_fc, tmp_att,tmp_box_coords,\
-                ix, tmp_wrapped = self._prefetch_process[split].get()
+            if self.use_box:
+                tmp_fc, tmp_att,tmp_box_coords,\
+                    ix, tmp_wrapped = self._prefetch_process[split].get()
+                boxes_batch.append(tmp_box_coords)
+            else:
+                tmp_fc, tmp_att,\
+                    ix, tmp_wrapped = self._prefetch_process[split].get()
             fc_batch.append(tmp_fc)
             att_batch.append(tmp_att)
-            boxes_batch.append(tmp_box_coords)
-            #SIMAO
-            #box_file = os.path.join(self.rel_bboxes_dir,str(self.info['images'][ix]['id']) + '.npy')
-            #box_rel_coords = np.load(box_file)
-            #boxes_batch.append(box_rel_coords)
-            #SIMAO
 
             label_batch[i * seq_per_img : (i + 1) * seq_per_img, 1 : self.seq_length + 1] = self.get_captions(ix, seq_per_img)
 
@@ -164,11 +162,17 @@ class DataLoader(data.Dataset):
         # #sort by att_feat length
         # fc_batch, att_batch, label_batch, gts, infos = \
         #     zip(*sorted(zip(fc_batch, att_batch, np.vsplit(label_batch, batch_size), gts, infos), key=lambda x: len(x[1]), reverse=True))
-        boxes_batch, fc_batch, att_batch, label_batch, gts, infos = \
-            zip(*sorted(zip(boxes_batch, fc_batch, att_batch, np.vsplit(label_batch, batch_size), gts, infos), key=lambda x: 0, reverse=True))
 
         data = {}
-
+        if self.use_box:
+            boxes_batch, fc_batch, att_batch, label_batch, gts, infos = \
+                zip(*sorted(zip(boxes_batch, fc_batch, att_batch, np.vsplit(label_batch, batch_size), gts, infos), key=lambda x: 0, reverse=True))
+            data['boxes'] = np.zeros([len(boxes_batch)*seq_per_img, max_att_len, boxes_batch[0].shape[1]], dtype = 'float32')
+            for i in range(len(boxes_batch)):
+                data['boxes'][i*seq_per_img:(i+1)*seq_per_img, :boxes_batch[i].shape[0]] = boxes_batch[i]
+        else:
+            fc_batch, att_batch, label_batch, gts, infos = \
+                zip(*sorted(zip(fc_batch, att_batch, np.vsplit(label_batch, batch_size), gts, infos), key=lambda x: 0, reverse=True))
 
         data['fc_feats'] = np.stack(reduce(lambda x,y:x+y, [[_]*seq_per_img for _ in fc_batch]))
         # merge att_feats
@@ -176,9 +180,6 @@ class DataLoader(data.Dataset):
         data['att_feats'] = np.zeros([len(att_batch)*seq_per_img, max_att_len, att_batch[0].shape[1]], dtype = 'float32')
         for i in range(len(att_batch)):
             data['att_feats'][i*seq_per_img:(i+1)*seq_per_img, :att_batch[i].shape[0]] = att_batch[i]
-        data['boxes'] = np.zeros([len(boxes_batch)*seq_per_img, max_att_len, boxes_batch[0].shape[1]], dtype = 'float32')
-        for i in range(len(boxes_batch)):
-            data['boxes'][i*seq_per_img:(i+1)*seq_per_img, :boxes_batch[i].shape[0]] = boxes_batch[i]
 
         data['att_masks'] = np.zeros(data['att_feats'].shape[:2], dtype='float32')
         for i in range(len(att_batch)):
@@ -227,32 +228,15 @@ class DataLoader(data.Dataset):
                 areas = np.expand_dims(utils.get_box_areas(box_coords), axis=1)
 
                 box_coords_with_area = np.concatenate([box_coords, areas],axis=-1)
-                #box_feat = box_feat_with_area
-                #SIMAO
+                return (np.load(os.path.join(self.input_fc_dir, str(self.info['images'][ix]['id']) + '.npy')),
+                        att_feat,
+                        box_coords,
+                        ix)
 
-                #SIMAO boxes
-                #vertical_box_feats, horizontal_box_feats = utils.single_image_get_box_feats(box_feat,self.box_feats_size)
-                #
-
-
-                #if self.norm_box_feat:
-                    #box_feat = box_feat / np.linalg.norm(box_feat, 2, 1, keepdims=True)
-                    #SIMAO
-                    #vertical_box_feats= vertical_box_feats / np.linalg.norm(vertical_box_feats, 2, 1, keepdims=True)
-                    #horizontal_box_feats= horizontal_box_feats / np.linalg.norm(horizontal_box_feats, 2, 1, keepdims=True)
-                    #SIMAO
-
-                #SIMAO
-                #att_feat = np.hstack([att_feat, horizontal_box_feats, vertical_box_feats])
-                #SIMAO
-                #att_feat = np.hstack([att_feat, box_feat])
-                # sort the features by the size of boxes
-                #att_feat = np.stack(sorted(att_feat, key=lambda x:x[-1], reverse=True))
         else:
             att_feat = np.zeros((1,1,1))
         return (np.load(os.path.join(self.input_fc_dir, str(self.info['images'][ix]['id']) + '.npy')),
                 att_feat,
-                box_coords,
                 ix)
 
     def __len__(self):

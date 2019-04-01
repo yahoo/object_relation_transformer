@@ -270,13 +270,15 @@ class TransformerModel(CaptionModel):
                d_model=512, d_ff=2048, h=8, dropout=0.1):
         "Helper: Construct a model from hyperparameters."
         c = copy.deepcopy
-        attn = MultiHeadedAttention(h, d_model)
+        attn1 = MultiHeadedAttention(h, d_model)
+        attn2 = MultiHeadedAttention(h, d_model)
+        attn3 = MultiHeadedAttention(h, d_model)
         ff = PositionwiseFeedForward(d_model, d_ff, dropout)
         position = PositionalEncoding(d_model, dropout)
         #position = BoxEncoding(d_model, dropout)
         model = EncoderDecoder(
-            Encoder(EncoderLayer(d_model, c(attn), c(ff), dropout), N),
-            Decoder(DecoderLayer(d_model, c(attn), c(attn),
+            Encoder(EncoderLayer(d_model, c(attn1), c(ff), dropout), N),
+            Decoder(DecoderLayer(d_model, c(attn2), c(attn3),
                                  c(ff), dropout), N),
             lambda x:x, # nn.Sequential(Embeddings(d_model, src_vocab), c(position)),
             nn.Sequential(Embeddings(d_model, tgt_vocab), c(position)),
