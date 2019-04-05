@@ -68,6 +68,8 @@ class LanguageModelCriterion(nn.Module):
 
         output = -input.gather(2, target.unsqueeze(2)).squeeze(2) * mask
         output = torch.sum(output) / torch.sum(mask)
+        #import IPython
+        #IPython.embed()
 
         return output
 

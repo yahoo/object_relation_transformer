@@ -62,7 +62,7 @@ def get_bbox_relative_coords(params):
     coco_ids_to_paths={str(img['cocoid']):os.path.join(img_dir,img['filepath'],img['filename']) for img in coco_dict['images'] }
 
     rel_box_dir=output_dir
-    print("Saving bounding box relative coordinates under: %s"%rel_box_dir)
+    print("Output dir: %s"%rel_box_dir)
     if not os.path.exists(rel_box_dir):
         os.makedirs(rel_box_dir)
 

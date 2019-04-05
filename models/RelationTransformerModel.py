@@ -283,11 +283,9 @@ def box_attention(query, key, value, box_relation_embds_matrix, mask=None, dropo
     if dropout is not None:
         w_mn = dropout(w_mn)
 
-    # apply attention weights
-    #w_mn = w_mn.view(N,N,1)
-    #w_v = w_v.view(N,1,-1)
     output = torch.matmul(w_mn,w_v)
-    output = torch.sum(output,-2)
+    #SIMAO: comented_out
+    #output = torch.sum(output,-2)
     return output, w_mn
 
 class BoxMultiHeadedAttention(nn.Module):
@@ -300,26 +298,27 @@ class BoxMultiHeadedAttention(nn.Module):
         self.dim_g = 64
         geo_feature_dim = self.dim_g
         self.h = h
-        self.linears = clones(nn.Linear(d_model, d_model), 3)
+        #matrices W_q, W_k, W_v, and one last projection layer
+        self.linears = clones(nn.Linear(d_model, d_model), 4)
         self.WGs = clones(nn.Linear(geo_feature_dim, 1, bias=True),8)
         self.attn = None
         self.dropout = nn.Dropout(p=dropout)
 
-    def forward(self, query, key, value, box, mask=None):
+    def forward(self, input_query, input_key, input_value, input_box, mask=None):
         "Implements Figure 2 of Relation Network for Object Detection"
         if mask is not None:
             # Same mask applied to all h heads.
             mask = mask.unsqueeze(1)
-        nbatches = query.size(0)
+        nbatches = input_query.size(0)
 
-        box_relational_embeddings_matrix = utils.BoxesRelationalEmbedding(box)
+        box_relational_embeddings_matrix = utils.BoxesRelationalEmbedding(input_box)
         flatten_box_relational_embeddings_matrix = box_relational_embeddings_matrix.view(-1,self.dim_g)
 
         #box_relational_matrix = utils.BoxesRelationalEmbedding(box).view(-1,query.size(-1))
         # 1) Do all the linear projections in batch from d_model => h x d_k
         query, key, value = \
             [l(x).view(nbatches, -1, self.h, self.d_k).transpose(1, 2)
-             for l, x in zip(self.linears, (query, key, value))]
+             for l, x in zip(self.linears, (input_query, input_key, input_value))]
         box_size_per_head = list(box_relational_embeddings_matrix.shape[:3])
         box_size_per_head.insert(1, 1)
         box_scalar_relations_per_head = [l(flatten_box_relational_embeddings_matrix).view(box_size_per_head) for l in self.WGs]
@@ -332,8 +331,12 @@ class BoxMultiHeadedAttention(nn.Module):
         # 3) "Concat" using a view and apply a final linear.
         x = x.transpose(1, 2).contiguous() \
              .view(nbatches, -1, self.h * self.d_k)
+        #SIMAO added this
+        x= input_value + x
+        #import IPython
+        #IPython.embed()
         return self.linears[-1](x)
-
+        #eturn self.linears[-1](input_query)
 
 class PositionwiseFeedForward(nn.Module):
     "Implements FFN equation."

@@ -167,9 +167,6 @@ class DataLoader(data.Dataset):
         if self.use_box:
             boxes_batch, fc_batch, att_batch, label_batch, gts, infos = \
                 zip(*sorted(zip(boxes_batch, fc_batch, att_batch, np.vsplit(label_batch, batch_size), gts, infos), key=lambda x: 0, reverse=True))
-            data['boxes'] = np.zeros([len(boxes_batch)*seq_per_img, max_att_len, boxes_batch[0].shape[1]], dtype = 'float32')
-            for i in range(len(boxes_batch)):
-                data['boxes'][i*seq_per_img:(i+1)*seq_per_img, :boxes_batch[i].shape[0]] = boxes_batch[i]
         else:
             fc_batch, att_batch, label_batch, gts, infos = \
                 zip(*sorted(zip(fc_batch, att_batch, np.vsplit(label_batch, batch_size), gts, infos), key=lambda x: 0, reverse=True))
@@ -199,6 +196,10 @@ class DataLoader(data.Dataset):
         data['bounds'] = {'it_pos_now': self.iterators[split], 'it_max': len(self.split_ix[split]), 'wrapped': wrapped}
         data['infos'] = infos
 
+        if self.use_box:
+            data['boxes'] = np.zeros([len(boxes_batch)*seq_per_img, max_att_len, boxes_batch[0].shape[1]], dtype = 'float32')
+            for i in range(len(boxes_batch)):
+                data['boxes'][i*seq_per_img:(i+1)*seq_per_img, :boxes_batch[i].shape[0]] = boxes_batch[i]
         return data
 
     # It's not coherent to make DataLoader a subclass of Dataset, but essentially, we only need to implement the following to functions,

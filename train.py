@@ -137,7 +137,7 @@ def train(opt):
         tmp = [_ if _ is None else torch.from_numpy(_).cuda() for _ in tmp]
         fc_feats, att_feats, labels, masks, att_masks = tmp
         if opt.use_box:
-            boxes = data['boxes']
+            boxes = data['boxes'] if data['boxes'] is None else torch.from_numpy(data['boxes']).cuda()
 
         optimizer.zero_grad()
 
