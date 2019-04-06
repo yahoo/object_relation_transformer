@@ -323,7 +323,7 @@ class BoxMultiHeadedAttention(nn.Module):
         box_size_per_head.insert(1, 1)
         box_scalar_relations_per_head = [l(flatten_box_relational_embeddings_matrix).view(box_size_per_head) for l in self.WGs]
         box_scalar_relations = torch.cat((box_scalar_relations_per_head),1)
-
+        box_scalar_relations = F.relu(box_scalar_relations)
         # 2) Apply attention on all the projected vectors in batch.
         x, self.box_attn = box_attention(query, key, value, box_scalar_relations, mask=mask,
                                  dropout=self.dropout)
