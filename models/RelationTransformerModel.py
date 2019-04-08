@@ -311,7 +311,8 @@ class BoxMultiHeadedAttention(nn.Module):
             mask = mask.unsqueeze(1)
         nbatches = input_query.size(0)
 
-        box_relational_embeddings_matrix = utils.BoxesRelationalEmbedding(input_box)
+        #box_relational_embeddings_matrix = utils.BoxesRelationalEmbedding(input_box)
+        box_relational_embeddings_matrix = utils.BoxRelationalEmbedding(input_box)
         flatten_box_relational_embeddings_matrix = box_relational_embeddings_matrix.view(-1,self.dim_g)
 
         #box_relational_matrix = utils.BoxesRelationalEmbedding(box).view(-1,query.size(-1))
