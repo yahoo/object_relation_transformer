@@ -15,6 +15,9 @@ import os
 import sys
 import misc.utils as utils
 
+import opts
+model_opts = opts.parse_opt()
+
 def language_eval(dataset, preds, model_id, split):
     import sys
     sys.path.append("coco-caption")
@@ -86,21 +89,32 @@ def eval_split(model, crit, loader, eval_kwargs={}):
             fc_feats, att_feats, labels, masks, att_masks = tmp
 
             with torch.no_grad():
-                loss = crit(model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:]).item()
+                if model_opts.use_box:
+                    boxes_data=data['boxes']
+                    boxes = torch.from_numpy(boxes_data).cuda() if boxes_data is not None else boxes_data
+                    loss = crit(model(fc_feats, att_feats, boxes, labels, att_masks), labels[:,1:], masks[:,1:]).item()
+                else:
+                    loss = crit(model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:]).item()
             loss_sum = loss_sum + loss
             loss_evals = loss_evals + 1
 
         # forward the model to also get generated samples for each image
         # Only leave one feature for each image, in case duplicate sample
-        tmp = [data['fc_feats'][np.arange(loader.batch_size) * loader.seq_per_img], 
+        tmp = [data['fc_feats'][np.arange(loader.batch_size) * loader.seq_per_img],
             data['att_feats'][np.arange(loader.batch_size) * loader.seq_per_img],
             data['att_masks'][np.arange(loader.batch_size) * loader.seq_per_img] if data['att_masks'] is not None else None]
         tmp = [torch.from_numpy(_).cuda() if _ is not None else _ for _ in tmp]
         fc_feats, att_feats, att_masks = tmp
+
         # forward the model to also get generated samples for each image
         with torch.no_grad():
-            seq = model(fc_feats, att_feats, att_masks, opt=eval_kwargs, mode='sample')[0].data
-        
+            if model_opts.use_box:
+                boxes_data= data['boxes'][np.arange(loader.batch_size) * loader.seq_per_img]
+                boxes = torch.from_numpy(boxes_data).cuda() if boxes_data is not None else boxes_data
+                seq = model(fc_feats, att_feats, boxes, att_masks, opt=eval_kwargs, mode='sample')[0].data
+            else:
+                seq = model(fc_feats, att_feats, att_masks, opt=eval_kwargs, mode='sample')[0].data
+
         # Print beam search
         if beam_size > 1 and verbose_beam:
             for i in range(loader.batch_size):

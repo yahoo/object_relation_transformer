@@ -7,6 +7,13 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torch.optim as optim
+import time
+
+def apply_along_batch(func, M):
+    #apply torch function for each image in a batch, and concatenate results back into a single tensor
+    tensorList = [func(m) for m in torch.unbind(M, dim=0) ]
+    result = torch.stack(tensorList, dim=0)
+    return result
 
 def if_use_att(caption_model):
     # Decide if load attention feature according to caption model
@@ -62,6 +69,8 @@ class LanguageModelCriterion(nn.Module):
 
         output = -input.gather(2, target.unsqueeze(2)).squeeze(2) * mask
         output = torch.sum(output) / torch.sum(mask)
+        #import IPython
+        #IPython.embed()
 
         return output
 
@@ -75,7 +84,7 @@ class LabelSmoothing(nn.Module):
         self.smoothing = smoothing
         # self.size = size
         self.true_dist = None
-        
+
     def forward(self, input, target, mask):
         # truncate to the same size
         target = target[:, :input.size(1)]
@@ -136,7 +145,7 @@ class NoamOpt(object):
         self.factor = factor
         self.model_size = model_size
         self._rate = 0
-        
+
     def step(self):
         "Update parameters and rate"
         self._step += 1
@@ -145,7 +154,7 @@ class NoamOpt(object):
             p['lr'] = rate
         self._rate = rate
         self.optimizer.step()
-        
+
     def rate(self, step = None):
         "Implement `lrate` above"
         if step is None:
@@ -163,7 +172,7 @@ class ReduceLROnPlateau(object):
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode, factor, patience, verbose, threshold, threshold_mode, cooldown, min_lr, eps)
         self.optimizer = optimizer
         self.current_lr = get_lr(optimizer)
-        
+
     def step(self):
         "Update parameters and rate"
         self.optimizer.step()
@@ -189,7 +198,7 @@ class ReduceLROnPlateau(object):
             self.scheduler._init_is_better(mode=self.scheduler.mode, threshold=self.scheduler.threshold, threshold_mode=self.scheduler.threshold_mode)
             self.optimizer.load_state_dict(state_dict['optimizer_state_dict'])
             # current_lr is actually useless in this case
-        
+
     def rate(self, step = None):
         "Implement `lrate` above"
         if step is None:
@@ -200,10 +209,131 @@ class ReduceLROnPlateau(object):
 
     def __getattr__(self, name):
         return getattr(self.optimizer, name)
-        
+
 def get_std_opt(model, factor=1, warmup=2000):
     # return NoamOpt(model.tgt_embed[0].d_model, 2, 4000,
     #         torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
     return NoamOpt(model.model.tgt_embed[0].d_model, factor, warmup,
             torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
-    
+
+def BoxRelationalEmbedding(f_g, dim_g=64, wave_len=1000):
+    #returns a relational embedding for each pair of bboxes, with dimension = dim_g
+    #follow implementation of https://github.com/heefe92/Relation_Networks-pytorch/blob/master/model.py#L1014-L1055
+    batch_size = f_g.size(0)
+
+    x_min, y_min, x_max, y_max = torch.chunk(f_g, 4, dim=2)
+
+    cx = (x_min + x_max) * 0.5
+    cy = (y_min + y_max) * 0.5
+    w = (x_max - x_min) + 1.
+    h = (y_max - y_min) + 1.
+
+    #cx.view(1,-1) transposes the vector cx, and so dim(delta_x) = (dim(cx), dim(cx))
+    delta_x = cx - cx.view(batch_size, 1, -1)
+    delta_x = torch.clamp(torch.abs(delta_x / w), min=1e-3)
+    delta_x = torch.log(delta_x)
+
+    delta_y = cy - cy.view(batch_size, 1, -1)
+    delta_y = torch.clamp(torch.abs(delta_y / h), min=1e-3)
+    delta_y = torch.log(delta_y)
+
+    delta_w = torch.log(w / w.view(batch_size, 1, -1))
+    delta_h = torch.log(h / h.view(batch_size, 1, -1))
+
+    matrix_size = delta_h.size()
+    delta_x = delta_x.view(batch_size, matrix_size[1], matrix_size[2], 1)
+    delta_y = delta_y.view(batch_size, matrix_size[1], matrix_size[2], 1)
+    delta_w = delta_w.view(batch_size, matrix_size[1], matrix_size[2], 1)
+    delta_h = delta_h.view(batch_size, matrix_size[1], matrix_size[2], 1)
+
+    position_mat = torch.cat((delta_x, delta_y, delta_w, delta_h), -1)
+    feat_range = torch.arange(dim_g / 8).cuda()
+    dim_mat = feat_range / (dim_g / 8)
+    dim_mat = 1. / (torch.pow(wave_len, dim_mat))
+
+    dim_mat = dim_mat.view(1, 1, 1, -1)
+    position_mat = position_mat.view(batch_size, matrix_size[1], matrix_size[2], 4, -1)
+    position_mat = 100. * position_mat
+
+    mul_mat = position_mat * dim_mat
+    mul_mat = mul_mat.view(batch_size, matrix_size[1], matrix_size[2], -1)
+    sin_mat = torch.sin(mul_mat)
+    cos_mat = torch.cos(mul_mat)
+    embedding = torch.cat((sin_mat, cos_mat), -1)
+    return(embedding)
+
+
+def get_box_feats(boxes, d):
+    h,w = boxes.shape[:2]
+    boxes_times_d = (d*boxes).astype(np.int32)
+    boxes_wmin = boxes_times_d[:,:,0]
+    boxes_wmax = boxes_times_d[:,:,2]
+    boxes_hmin = boxes_times_d[:,:,1]
+    boxes_hmax = boxes_times_d[:,:,3]
+
+    box_hfeats = np.zeros((h,w,d))
+    for i in range(h):
+        for j in range(w):
+            if not np.all(boxes_times_d[i,j]==np.zeros(4)):
+                h_vector = np.concatenate([np.zeros(boxes_hmin[i,j]), np.ones(boxes_hmax[i,j]-boxes_hmin[i,j]), np.zeros(d-boxes_hmax[i,j])])
+                box_hfeats[i,j]+=h_vector
+
+    box_wfeats = np.zeros((h,w,d))
+    for i in range(h):
+        for j in range(w):
+            if not np.all(boxes_times_d[i,j]==np.zeros(4)):
+                w_vector = np.concatenate([np.zeros(boxes_wmin[i,j]), np.ones(boxes_wmax[i,j]-boxes_wmin[i,j]), np.zeros(d-boxes_wmax[i,j])])
+                box_wfeats[i,j]+=w_vector
+    return(box_hfeats, box_wfeats)
+
+def single_image_get_box_feats(boxes, d):
+    h = boxes.shape[0]
+    boxes_times_d = (d*boxes).astype(np.int32)
+    boxes_wmin = boxes_times_d[:,0]
+    boxes_wmax = boxes_times_d[:,2]
+    boxes_hmin = boxes_times_d[:,1]
+    boxes_hmax = boxes_times_d[:,3]
+
+    box_hfeats = np.zeros((h,d))
+    for i in range(h):
+        #for j in range(w):
+            if not np.all(boxes_times_d[i]==np.zeros(4)):
+                h_vector = np.concatenate([np.zeros(boxes_hmin[i]), np.ones(boxes_hmax[i]-boxes_hmin[i]), np.zeros(d-boxes_hmax[i])])
+                box_hfeats[i]+=h_vector
+
+    box_wfeats = np.zeros((h,d))
+    for i in range(h):
+        #for j in range(w):
+            if not np.all(boxes_times_d[i]==np.zeros(4)):
+                w_vector = np.concatenate([np.zeros(boxes_wmin[i]), np.ones(boxes_wmax[i]-boxes_wmin[i]), np.zeros(d-boxes_wmax[i])])
+                box_wfeats[i]+=w_vector
+    return(box_hfeats, box_wfeats)
+
+def get_box_areas(arr):
+    return((arr[:,2]-arr[:,0])*(arr[:,3]-arr[:,1]))
+
+def torch_get_box_feats(boxes, d):
+    device = boxes.device
+    h,w = boxes.shape[:2]
+    boxes_times_d = (d*boxes).type(torch.int32)
+    boxes_wmin = boxes_times_d[:,:,0]
+    boxes_wmax = boxes_times_d[:,:,2]
+    boxes_hmin = boxes_times_d[:,:,1]
+    boxes_hmax = boxes_times_d[:,:,3]
+
+    box_hfeats = torch.zeros((h,w,d), device=device)
+    zero_fourtuple=torch.zeros(4,dtype=torch.int32,device=device)
+
+    for i in range(h):
+        for j in range(w):
+            if not torch.all(boxes_times_d[i,j]==zero_fourtuple):
+                h_vector = torch.cat([torch.zeros(boxes_hmin[i,j], device=device), torch.ones(boxes_hmax[i,j]-boxes_hmin[i,j], device=device), torch.zeros(d-boxes_hmax[i,j], device=device)])
+                box_hfeats[i,j]+=h_vector
+
+    box_wfeats = torch.zeros((h,w,d), device=device)
+    for i in range(h):
+        for j in range(w):
+            if not all(boxes_times_d[i,j]==zero_fourtuple):
+                w_vector = torch.cat([torch.zeros(boxes_wmin[i,j], device=device), torch.ones(boxes_wmax[i,j]-boxes_wmin[i,j], device=device), torch.zeros(d-boxes_wmax[i,j], device=device)])
+                box_wfeats[i,j]+=w_vector
+    return(box_hfeats, box_wfeats)

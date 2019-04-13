@@ -10,6 +10,7 @@ import random
 
 import torch
 import torch.utils.data as data
+import misc.utils as utils
 
 import multiprocessing
 
@@ -33,7 +34,7 @@ class DataLoader(data.Dataset):
         self.opt = opt
         self.batch_size = self.opt.batch_size
         self.seq_per_img = opt.seq_per_img
-        
+        self.box_feats_size = opt.box_as_feats_size
         # feature related options
         self.use_att = getattr(opt, 'use_att', True)
         self.use_box = getattr(opt, 'use_box', 0)
@@ -43,10 +44,11 @@ class DataLoader(data.Dataset):
         # load the json file which contains additional information about the dataset
         print('DataLoader loading json file: ', opt.input_json)
         self.info = json.load(open(self.opt.input_json))
+        self.rel_bboxes_dir = self.opt.input_rel_box_dir
         self.ix_to_word = self.info['ix_to_word']
         self.vocab_size = len(self.ix_to_word)
         print('vocab size is ', self.vocab_size)
-        
+
         # open the hdf5 file
         print('DataLoader loading h5 file: ', opt.input_fc_dir, opt.input_att_dir, opt.input_box_dir, opt.input_label_h5)
         self.h5_label_file = h5py.File(self.opt.input_label_h5, 'r', driver='core')
@@ -84,7 +86,7 @@ class DataLoader(data.Dataset):
         print('assigned %d images to split test' %len(self.split_ix['test']))
 
         self.iterators = {'train': 0, 'val': 0, 'test': 0}
-        
+
         self._prefetch_process = {} # The three prefetch process
         for split in self.iterators.keys():
             self._prefetch_process[split] = BlobFetcher(split, self, split=='train')
@@ -129,13 +131,19 @@ class DataLoader(data.Dataset):
         infos = []
         gts = []
 
+        boxes_batch=[]
         for i in range(batch_size):
             # fetch image
-            tmp_fc, tmp_att,\
-                ix, tmp_wrapped = self._prefetch_process[split].get()
+            if self.use_box:
+                tmp_fc, tmp_att,tmp_box_coords,\
+                    ix, tmp_wrapped = self._prefetch_process[split].get()
+                boxes_batch.append(tmp_box_coords)
+            else:
+                tmp_fc, tmp_att,\
+                    ix, tmp_wrapped = self._prefetch_process[split].get()
             fc_batch.append(tmp_fc)
             att_batch.append(tmp_att)
-            
+
             label_batch[i * seq_per_img : (i + 1) * seq_per_img, 1 : self.seq_length + 1] = self.get_captions(ix, seq_per_img)
 
             if tmp_wrapped:
@@ -143,7 +151,7 @@ class DataLoader(data.Dataset):
 
             # Used for reward evaluation
             gts.append(self.h5_label_file['labels'][self.label_start_ix[ix] - 1: self.label_end_ix[ix]])
-        
+
             # record associated info as well
             info_dict = {}
             info_dict['ix'] = ix
@@ -154,15 +162,22 @@ class DataLoader(data.Dataset):
         # #sort by att_feat length
         # fc_batch, att_batch, label_batch, gts, infos = \
         #     zip(*sorted(zip(fc_batch, att_batch, np.vsplit(label_batch, batch_size), gts, infos), key=lambda x: len(x[1]), reverse=True))
-        fc_batch, att_batch, label_batch, gts, infos = \
-            zip(*sorted(zip(fc_batch, att_batch, np.vsplit(label_batch, batch_size), gts, infos), key=lambda x: 0, reverse=True))
+
         data = {}
+        if self.use_box:
+            boxes_batch, fc_batch, att_batch, label_batch, gts, infos = \
+                zip(*sorted(zip(boxes_batch, fc_batch, att_batch, np.vsplit(label_batch, batch_size), gts, infos), key=lambda x: 0, reverse=True))
+        else:
+            fc_batch, att_batch, label_batch, gts, infos = \
+                zip(*sorted(zip(fc_batch, att_batch, np.vsplit(label_batch, batch_size), gts, infos), key=lambda x: 0, reverse=True))
+
         data['fc_feats'] = np.stack(reduce(lambda x,y:x+y, [[_]*seq_per_img for _ in fc_batch]))
         # merge att_feats
         max_att_len = max([_.shape[0] for _ in att_batch])
         data['att_feats'] = np.zeros([len(att_batch)*seq_per_img, max_att_len, att_batch[0].shape[1]], dtype = 'float32')
         for i in range(len(att_batch)):
             data['att_feats'][i*seq_per_img:(i+1)*seq_per_img, :att_batch[i].shape[0]] = att_batch[i]
+
         data['att_masks'] = np.zeros(data['att_feats'].shape[:2], dtype='float32')
         for i in range(len(att_batch)):
             data['att_masks'][i*seq_per_img:(i+1)*seq_per_img, :att_batch[i].shape[0]] = 1
@@ -181,6 +196,10 @@ class DataLoader(data.Dataset):
         data['bounds'] = {'it_pos_now': self.iterators[split], 'it_max': len(self.split_ix[split]), 'wrapped': wrapped}
         data['infos'] = infos
 
+        if self.use_box:
+            data['boxes'] = np.zeros([len(boxes_batch)*seq_per_img, max_att_len, boxes_batch[0].shape[1]], dtype = 'float32')
+            for i in range(len(boxes_batch)):
+                data['boxes'][i*seq_per_img:(i+1)*seq_per_img, :boxes_batch[i].shape[0]] = boxes_batch[i]
         return data
 
     # It's not coherent to make DataLoader a subclass of Dataset, but essentially, we only need to implement the following to functions,
@@ -197,16 +216,24 @@ class DataLoader(data.Dataset):
             if self.norm_att_feat:
                 att_feat = att_feat / np.linalg.norm(att_feat, 2, 1, keepdims=True)
             if self.use_box:
-                box_feat = np.load(os.path.join(self.input_box_dir, str(self.info['images'][ix]['id']) + '.npy'))
+                #BEFORE
+                #box_feat = np.load(os.path.join(self.input_box_dir, str(self.info['images'][ix]['id']) + '.npy'))
                 # devided by image width and height
-                x1,y1,x2,y2 = np.hsplit(box_feat, 4)
-                h,w = self.info['images'][ix]['height'], self.info['images'][ix]['width']
-                box_feat = np.hstack((x1/w, y1/h, x2/w, y2/h, (x2-x1)*(y2-y1)/(w*h))) # question? x2-x1+1??
-                if self.norm_box_feat:
-                    box_feat = box_feat / np.linalg.norm(box_feat, 2, 1, keepdims=True)
-                att_feat = np.hstack([att_feat, box_feat])
-                # sort the features by the size of boxes
-                att_feat = np.stack(sorted(att_feat, key=lambda x:x[-1], reverse=True))
+                #x1,y1,x2,y2 = np.hsplit(box_feat, 4)
+                #h,w = self.info['images'][ix]['height'], self.info['images'][ix]['width']
+                #box_feat = np.hstack((x1/w, y1/h, x2/w, y2/h, (x2-x1)*(y2-y1)/(w*h))) # question? x2-x1+1??
+
+                #SIMAO
+                box_file = os.path.join(self.rel_bboxes_dir,str(self.info['images'][ix]['id']) + '.npy')
+                box_coords = np.load(box_file)
+                areas = np.expand_dims(utils.get_box_areas(box_coords), axis=1)
+
+                box_coords_with_area = np.concatenate([box_coords, areas],axis=-1)
+                return (np.load(os.path.join(self.input_fc_dir, str(self.info['images'][ix]['id']) + '.npy')),
+                        att_feat,
+                        box_coords,
+                        ix)
+
         else:
             att_feat = np.zeros((1,1,1))
         return (np.load(os.path.join(self.input_fc_dir, str(self.info['images'][ix]['id']) + '.npy')),
@@ -273,7 +300,7 @@ class BlobFetcher():
         self.dataloader.iterators[self.split] = ri_next
 
         return ix, wrapped
-    
+
     def get(self):
         if not hasattr(self, 'split_loader'):
             self.reset()
@@ -283,6 +310,8 @@ class BlobFetcher():
         if wrapped:
             self.reset()
 
-        assert tmp[2] == ix, "ix not equal"
+        #SIMAO
+        assert tmp[-1] == ix, "ix not equal"
+        #assert tmp[2] == ix, "ix not equal"
 
         return tmp + [wrapped]

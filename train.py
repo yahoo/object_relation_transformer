@@ -32,9 +32,12 @@ def add_summary_value(writer, key, value, iteration):
 def train(opt):
     # Deal with feature things before anything
     opt.use_att = utils.if_use_att(opt.caption_model)
-    if opt.use_box: opt.att_feat_size = opt.att_feat_size + 5
+    #if opt.use_box: opt.att_feat_size = opt.att_feat_size + 5
+    #SIMAO
+
 
     loader = DataLoader(opt)
+
     opt.vocab_size = loader.vocab_size
     opt.seq_length = loader.seq_length
 
@@ -82,7 +85,7 @@ def train(opt):
     rl_crit = utils.RewardCriterion()
 
     if opt.noamopt:
-        assert opt.caption_model == 'transformer', 'noamopt can only work with transformer'
+        assert opt.caption_model == 'transformer' or opt.caption_model == 'relation_transformer', 'noamopt can only work with transformer'
         optimizer = utils.get_std_opt(model, factor=opt.noamopt_factor, warmup=opt.noamopt_warmup)
         optimizer._step = iteration
     elif opt.reduce_on_plateau:
@@ -119,7 +122,7 @@ def train(opt):
                 sc_flag = False
 
             epoch_done = False
-                
+
         start = time.time()
         # Load data from train split (0)
         data = loader.get_batch('train')
@@ -128,15 +131,21 @@ def train(opt):
         torch.cuda.synchronize()
         start = time.time()
 
+
+        #SIMAO
         tmp = [data['fc_feats'], data['att_feats'], data['labels'], data['masks'], data['att_masks']]
         tmp = [_ if _ is None else torch.from_numpy(_).cuda() for _ in tmp]
         fc_feats, att_feats, labels, masks, att_masks = tmp
-        
+        if opt.use_box:
+            boxes = data['boxes'] if data['boxes'] is None else torch.from_numpy(data['boxes']).cuda()
+
         optimizer.zero_grad()
-        #import IPython; IPython.embed()
-        
+
         if not sc_flag:
-            loss = crit(dp_model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:])
+            if opt.use_box:
+                loss = crit(dp_model(fc_feats, att_feats, boxes, labels, att_masks), labels[:,1:], masks[:,1:])
+            else:
+                loss = crit(dp_model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:])
         else:
             gen_result, sample_logprobs = dp_model(fc_feats, att_feats, att_masks, opt={'sample_max':0}, mode='sample')
             reward = get_self_critical_reward(dp_model, fc_feats, att_feats, att_masks, data, gen_result, opt)

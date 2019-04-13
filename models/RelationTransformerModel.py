@@ -21,7 +21,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import misc.utils as utils
-
+#utils.PositionalEmbedding()
 import copy
 import math
 import numpy as np
@@ -43,13 +43,13 @@ class EncoderDecoder(nn.Module):
         self.generator = generator
 
 
-    def forward(self, src, tgt, src_mask, tgt_mask):
+    def forward(self, src, boxes, tgt, src_mask, tgt_mask):
         "Take in and process masked src and target sequences."
-        return self.decode(self.encode(src, src_mask), src_mask,
+        return self.decode(self.encode(src, boxes, src_mask), src_mask,
                             tgt, tgt_mask)
 
-    def encode(self, src, src_mask):
-        return self.encoder(self.src_embed(src), src_mask)
+    def encode(self, src, boxes, src_mask):
+        return self.encoder(self.src_embed(src), boxes, src_mask)
 
     def decode(self, memory, src_mask, tgt, tgt_mask):
         return self.decoder(self.tgt_embed(tgt), memory, src_mask, tgt_mask)
@@ -74,10 +74,10 @@ class Encoder(nn.Module):
         self.layers = clones(layer, N)
         self.norm = LayerNorm(layer.size)
 
-    def forward(self, x, mask):
+    def forward(self, x, box, mask):
         "Pass the input (and mask) through each layer in turn."
         for layer in self.layers:
-            x = layer(x, mask)
+            x = layer(x, box, mask)
         return self.norm(x)
 
 class LayerNorm(nn.Module):
@@ -116,9 +116,9 @@ class EncoderLayer(nn.Module):
         self.sublayer = clones(SublayerConnection(size, dropout), 2)
         self.size = size
 
-    def forward(self, x, mask):
+    def forward(self, x, box, mask):
         "Follow Figure 1 (left) for connections."
-        x = self.sublayer[0](x, lambda x: self.self_attn(x, x, x, mask))
+        x = self.sublayer[0](x, lambda x: self.self_attn(x, x, x, box, mask))
         return self.sublayer[1](x, self.feed_forward)
 
 class Decoder(nn.Module):
@@ -168,6 +168,7 @@ def attention(query, key, value, mask=None, dropout=None):
         p_attn = dropout(p_attn)
     return torch.matmul(p_attn, value), p_attn
 
+
 class MultiHeadedAttention(nn.Module):
     def __init__(self, h, d_model, dropout=0.1):
         "Take in model size and number of heads."
@@ -200,6 +201,143 @@ class MultiHeadedAttention(nn.Module):
         x = x.transpose(1, 2).contiguous() \
              .view(nbatches, -1, self.h * self.d_k)
         return self.linears[-1](x)
+"""
+def box_attention(query, key, value, box_relation_embds_matrix, mask=None, dropout=None):
+    #Compute 'Scaled Dot Product Attention as in paper Relation Networks for Object Detection'.
+    #Follow the implementation in https://github.com/heefe92/Relation_Networks-pytorch/blob/master/model.py#L1026-L1055
+
+
+    N = value.size()[0]
+    dim_k = key.size()[-1]
+    dim_g = box_relation_embds_matrix.size()[-1]
+    import IPython
+    IPython.embed()
+    w_q = query.view(1,N,dim_k)
+    w_k = key.view(N,1,self.dim_k)
+    w_v = value
+
+    #attention weights
+    scaled_dot = torch.sum((w_k*w_q),-1 )
+    scaled_dot = scaled_dot / np.sqrt(self.dim_k)
+    if mask is not None:
+        scaled_dot = scaled_dot.masked_fill(mask == 0, -1e9)
+
+    w_g = box_relation_embds_matrix.view(N,N)
+    w_a = scaled_dot.view(N,N)
+    #import IPython
+    #IPython.embed()
+    # multiplying log of geometric weights by feature weights
+    w_mn = torch.log(torch.clamp(w_g, min = 1e-6)) + w_a
+    w_mn = torch.nn.Softmax(dim=1)(w_mn)
+    if dropout is not None:
+        w_mn = dropout(w_mn)
+
+    # apply attention weights
+    w_mn = w_mn.view(N,N,1)
+    w_v = w_v.view(N,1,-1)
+    output = w_mn*w_v
+
+    output = torch.sum(output,-2)
+    return output, w_mn
+"""
+def attention(query, key, value, mask=None, dropout=None):
+    "Compute 'Scaled Dot Product Attention'"
+    d_k = query.size(-1)
+    scores = torch.matmul(query, key.transpose(-2, -1)) \
+             / math.sqrt(d_k)
+    if mask is not None:
+        scores = scores.masked_fill(mask == 0, -1e9)
+    p_attn = F.softmax(scores, dim = -1)
+    if dropout is not None:
+        p_attn = dropout(p_attn)
+    return torch.matmul(p_attn, value), p_attn
+
+def box_attention(query, key, value, box_relation_embds_matrix, mask=None, dropout=None):
+    #Compute 'Scaled Dot Product Attention as in paper Relation Networks for Object Detection'.
+    #Follow the implementation in https://github.com/heefe92/Relation_Networks-pytorch/blob/master/model.py#L1026-L1055
+
+
+    N = value.size()[:2]
+    dim_k = key.size(-1)
+    dim_g = box_relation_embds_matrix.size()[-1]
+    #import IPython
+    #IPython.embed()
+    w_q = query
+    w_k = key.transpose(-2, -1)
+    w_v = value
+
+    #attention weights
+    scaled_dot = torch.matmul(w_q,w_k)
+    scaled_dot = scaled_dot / np.sqrt(dim_k)
+    if mask is not None:
+        scaled_dot = scaled_dot.masked_fill(mask == 0, -1e9)
+
+    #w_g = box_relation_embds_matrix.view(N,N)
+    w_g = box_relation_embds_matrix
+    w_a = scaled_dot
+    #w_a = scaled_dot.view(N,N)
+
+    # multiplying log of geometric weights by feature weights
+    w_mn = torch.log(torch.clamp(w_g, min = 1e-6)) + w_a
+    w_mn = torch.nn.Softmax(dim=-1)(w_mn)
+    if dropout is not None:
+        w_mn = dropout(w_mn)
+
+    output = torch.matmul(w_mn,w_v)
+    #SIMAO: comented_out
+    #output = torch.sum(output,-2)
+    return output, w_mn
+
+class BoxMultiHeadedAttention(nn.Module):
+    def __init__(self, h, d_model, dropout=0.1):
+        "Take in model size and number of heads."
+        super(BoxMultiHeadedAttention, self).__init__()
+        assert d_model % h == 0
+        # We assume d_v always equals d_k
+        self.d_k = d_model // h
+        self.dim_g = 64
+        geo_feature_dim = self.dim_g
+        self.h = h
+        #matrices W_q, W_k, W_v, and one last projection layer
+        self.linears = clones(nn.Linear(d_model, d_model), 4)
+        self.WGs = clones(nn.Linear(geo_feature_dim, 1, bias=True),8)
+        self.attn = None
+        self.dropout = nn.Dropout(p=dropout)
+
+    def forward(self, input_query, input_key, input_value, input_box, mask=None):
+        "Implements Figure 2 of Relation Network for Object Detection"
+        if mask is not None:
+            # Same mask applied to all h heads.
+            mask = mask.unsqueeze(1)
+        nbatches = input_query.size(0)
+
+        #box_relational_embeddings_matrix = utils.BoxesRelationalEmbedding(input_box)
+        box_relational_embeddings_matrix = utils.BoxRelationalEmbedding(input_box)
+        flatten_box_relational_embeddings_matrix = box_relational_embeddings_matrix.view(-1,self.dim_g)
+
+        #box_relational_matrix = utils.BoxesRelationalEmbedding(box).view(-1,query.size(-1))
+        # 1) Do all the linear projections in batch from d_model => h x d_k
+        query, key, value = \
+            [l(x).view(nbatches, -1, self.h, self.d_k).transpose(1, 2)
+             for l, x in zip(self.linears, (input_query, input_key, input_value))]
+        box_size_per_head = list(box_relational_embeddings_matrix.shape[:3])
+        box_size_per_head.insert(1, 1)
+        box_scalar_relations_per_head = [l(flatten_box_relational_embeddings_matrix).view(box_size_per_head) for l in self.WGs]
+        box_scalar_relations = torch.cat((box_scalar_relations_per_head),1)
+        box_scalar_relations = F.relu(box_scalar_relations)
+        # 2) Apply attention on all the projected vectors in batch.
+        x, self.box_attn = box_attention(query, key, value, box_scalar_relations, mask=mask,
+                                 dropout=self.dropout)
+
+        # 3) "Concat" using a view and apply a final linear.
+        x = x.transpose(1, 2).contiguous() \
+             .view(nbatches, -1, self.h * self.d_k)
+        #SIMAO added this
+        x= input_value + x
+        #import IPython
+        #IPython.embed()
+        return self.linears[-1](x)
+        #eturn self.linears[-1](input_query)
 
 class PositionwiseFeedForward(nn.Module):
     "Implements FFN equation."
@@ -243,42 +381,20 @@ class PositionalEncoding(nn.Module):
         return self.dropout(x)
 
 #SIMAO
-class BoxEncoding(nn.Module):
-    "Implement the bbox encoding function."
-    def __init__(self, d_model, dropout, max_len=5000):
-        super(PositionalEncoding, self).__init__()
-        self.dropout = nn.Dropout(p=dropout)
-
-        # Compute the positional encodings once in log space.
-        pe = torch.zeros(max_len, d_model)
-        position = torch.arange(0, max_len).unsqueeze(1).float()
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() *
-                             -(math.log(10000.0) / d_model))
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0)
-        self.register_buffer('pe', pe)
-
-    def forward(self, x):
-        x = x + self.pe[:, :x.size(1)]
-        return self.dropout(x)
-
-#SIMAO
-class TransformerModel(CaptionModel):
+class RelationTransformerModel(CaptionModel):
 
     def make_model(self, src_vocab, tgt_vocab, N=6,
                d_model=512, d_ff=2048, h=8, dropout=0.1):
         "Helper: Construct a model from hyperparameters."
         c = copy.deepcopy
-        attn1 = MultiHeadedAttention(h, d_model)
-        attn2 = MultiHeadedAttention(h, d_model)
-        attn3 = MultiHeadedAttention(h, d_model)
+        bbox_attn = BoxMultiHeadedAttention(h, d_model)
+        attn = MultiHeadedAttention(h, d_model)
         ff = PositionwiseFeedForward(d_model, d_ff, dropout)
         position = PositionalEncoding(d_model, dropout)
         #position = BoxEncoding(d_model, dropout)
         model = EncoderDecoder(
-            Encoder(EncoderLayer(d_model, c(attn1), c(ff), dropout), N),
-            Decoder(DecoderLayer(d_model, c(attn2), c(attn3),
+            Encoder(EncoderLayer(d_model, c(bbox_attn), c(ff), dropout), N),
+            Decoder(DecoderLayer(d_model, c(attn), c(attn),
                                  c(ff), dropout), N),
             lambda x:x, # nn.Sequential(Embeddings(d_model, src_vocab), c(position)),
             nn.Sequential(Embeddings(d_model, tgt_vocab), c(position)),
@@ -292,7 +408,7 @@ class TransformerModel(CaptionModel):
         return model
 
     def __init__(self, opt):
-        super(TransformerModel, self).__init__()
+        super(RelationTransformerModel, self).__init__()
         self.opt = opt
         # self.config = yaml.load(open(opt.config_file))
         # d_model = self.input_encoding_size # 512
@@ -363,7 +479,7 @@ class TransformerModel(CaptionModel):
 
     #     return fc_feats, att_feats, p_att_feats
 
-    def _prepare_feature(self, att_feats, att_masks=None, seq=None):
+    def _prepare_feature(self, att_feats, att_masks=None, boxes=None, seq=None):
         att_feats, att_masks = self.clip_att(att_feats, att_masks)
 
         att_feats = pack_wrapper(self.att_embed, att_feats, att_masks)
@@ -383,48 +499,14 @@ class TransformerModel(CaptionModel):
         else:
             seq_mask = None
 
-        return att_feats, seq, att_masks, seq_mask
+        return att_feats,boxes, seq, att_masks, seq_mask
 
-    def _forward(self, fc_feats, att_feats, seq, att_masks=None):
-        att_feats, seq, att_masks, seq_mask = self._prepare_feature(att_feats, att_masks, seq)
-
-        out = self.model(att_feats, seq, att_masks, seq_mask)
-
-        # batch_size = fc_feats.size(0)
-        # state = self.init_hidden(batch_size)
-
-        # # outputs = []
-        # outputs = fc_feats.new_zeros(batch_size, seq.size(1) - 1, self.vocab_size+1)
-
-        # fc_feats, att_feats, p_att_feats = self._prepare_feature(fc_feats, att_feats, att_masks)
-
-        # for i in range(seq.size(1) - 1):
-        #     if self.training and i >= 1 and self.ss_prob > 0.0: # otherwiste no need to sample
-        #         sample_prob = fc_feats.new(batch_size).uniform_(0, 1)
-        #         sample_mask = sample_prob < self.ss_prob
-        #         if sample_mask.sum() == 0:
-        #             it = seq[:, i].clone()
-        #         else:
-        #             sample_ind = sample_mask.nonzero().view(-1)
-        #             it = seq[:, i].data.clone()
-        #             #prob_prev = torch.exp(outputs[-1].data.index_select(0, sample_ind)) # fetch prev distribution: shape Nx(M+1)
-        #             #it.index_copy_(0, sample_ind, torch.multinomial(prob_prev, 1).view(-1))
-        #             # prob_prev = torch.exp(outputs[-1].data) # fetch prev distribution: shape Nx(M+1)
-        #             prob_prev = torch.exp(outputs[:, i-1].detach()) # fetch prev distribution: shape Nx(M+1)
-        #             it.index_copy_(0, sample_ind, torch.multinomial(prob_prev, 1).view(-1).index_select(0, sample_ind))
-        #     else:
-        #         it = seq[:, i].clone()
-        #     # break if all the sequences end
-        #     if i >= 1 and seq[:, i].sum() == 0:
-        #         break
-
-        #     output, state = self.get_logprobs_state(it, fc_feats, att_feats, p_att_feats, att_masks, state)
-        #     outputs[:, i] = output
-        #     # outputs.append(output)
-
+    def _forward(self, fc_feats, att_feats, boxes,  seq, att_masks=None):
+        att_feats, boxes, seq, att_masks, seq_mask = self._prepare_feature(att_feats, att_masks, boxes, seq)
+        out = self.model(att_feats, boxes, seq, att_masks, seq_mask)
         outputs = self.model.generator(out)
         return outputs
-        # return torch.cat([_.unsqueeze(1) for _ in outputs], 1)
+
 
     def get_logprobs_state(self, it, memory, mask, state):
         """
@@ -442,12 +524,12 @@ class TransformerModel(CaptionModel):
 
         return logprobs, [ys.unsqueeze(0)]
 
-    def _sample_beam(self, fc_feats, att_feats, att_masks=None, opt={}):
+    def _sample_beam(self, fc_feats, att_feats, boxes, att_masks=None, opt={}):
         beam_size = opt.get('beam_size', 10)
         batch_size = fc_feats.size(0)
 
-        att_feats, seq, att_masks, seq_mask = self._prepare_feature(att_feats, att_masks)
-        memory = self.model.encode(att_feats, att_masks)
+        att_feats, boxes, seq, att_masks, seq_mask = self._prepare_feature(att_feats, att_masks, boxes)
+        memory = self.model.encode(att_feats, boxes, att_masks)
 
         assert beam_size <= self.vocab_size + 1, 'lets assume this for now, otherwise this corner case causes a few headaches down the road. can be dealt with in future if needed'
         seq = torch.LongTensor(self.seq_length, batch_size).zero_()
@@ -472,7 +554,7 @@ class TransformerModel(CaptionModel):
         # return the samples and their log likelihoods
         return seq.transpose(0, 1), seqLogprobs.transpose(0, 1)
 
-    def _sample_(self, fc_feats, att_feats, att_masks=None, opt={}):
+    def _sample_(self, fc_feats, att_feats, boxes, att_masks=None, opt={}):
         sample_max = opt.get('sample_max', 1)
         beam_size = opt.get('beam_size', 1)
         temperature = opt.get('temperature', 1.0)
@@ -482,13 +564,12 @@ class TransformerModel(CaptionModel):
 
         if sample_max:
             with torch.no_grad():
-                seq_, seqLogprobs_ = self._sample_(fc_feats, att_feats, att_masks, opt)
+                seq_, seqLogprobs_ = self._sample_(fc_feats, att_feats, boxes, att_masks, opt)
 
         batch_size = att_feats.shape[0]
 
-        att_feats, seq, att_masks, seq_mask = self._prepare_feature(att_feats, att_masks)
-
-        memory = self.model.encode(att_feats, att_masks)
+        att_feats, boxes, seq, att_masks, seq_mask = self._prepare_feature(att_feats, att_masks, boxes)
+        memory = self.model.encode(att_feats, boxes, att_masks)
         ys = torch.zeros((batch_size, 1), dtype=torch.long).to(att_feats.device)
 
         seq = att_feats.new_zeros((batch_size, self.seq_length), dtype=torch.long)
@@ -518,20 +599,20 @@ class TransformerModel(CaptionModel):
         assert (seqLogprobs*((seq_>0).float()) - seqLogprobs_*((seq_>0).float())).abs().max() < 1e-5, 'logprobs doens\'t match'
         return seq, seqLogprobs
 
-    def _sample(self, fc_feats, att_feats, att_masks=None, opt={}):
+    def _sample(self, fc_feats, att_feats, boxes, att_masks=None, opt={}):
         sample_max = opt.get('sample_max', 1)
         beam_size = opt.get('beam_size', 1)
         temperature = opt.get('temperature', 1.0)
         decoding_constraint = opt.get('decoding_constraint', 0)
         if beam_size > 1:
-            return self._sample_beam(fc_feats, att_feats, att_masks, opt)
+            return self._sample_beam(fc_feats, att_feats, boxes, att_masks, opt)
 
         batch_size = att_feats.shape[0]
 
-        att_feats, seq, att_masks, seq_mask = self._prepare_feature(att_feats, att_masks)
+        att_feats, boxes, seq, att_masks, seq_mask = self._prepare_feature(att_feats, att_masks, boxes)
 
         state = None
-        memory = self.model.encode(att_feats, att_masks)
+        memory = self.model.encode(att_feats, boxes, att_masks)
 
         seq = att_feats.new_zeros((batch_size, self.seq_length), dtype=torch.long)
         seqLogprobs = att_feats.new_zeros(batch_size, self.seq_length)
