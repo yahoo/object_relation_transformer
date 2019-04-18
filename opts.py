@@ -42,8 +42,6 @@ def parse_opt():
                     help='2048 for resnet, 4096 for vgg')
     parser.add_argument('--att_feat_size', type=int, default=2048,
                     help='2048 for resnet, 512 for vgg')
-    parser.add_argument('--box_as_feats_size', type=int, default=50,
-                    help='each box is represented as two 01 vectors of length 50')
     parser.add_argument('--logit_layers', type=int, default=1,
                     help='number of layers in the RNN')
 

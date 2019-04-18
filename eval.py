@@ -57,9 +57,9 @@ parser.add_argument('--temperature', type=float, default=1.0,
 parser.add_argument('--decoding_constraint', type=int, default=0,
                 help='If 1, not allowing same word in a row')
 # For evaluation on a folder of images:
-parser.add_argument('--image_folder', type=str, default='', 
+parser.add_argument('--image_folder', type=str, default='',
                 help='If this is nonempty then will predict on the images in this folder path')
-parser.add_argument('--image_root', type=str, default='', 
+parser.add_argument('--image_root', type=str, default='',
                 help='In case the image paths have to be preprended with a root path to an image folder')
 # For evaluation on MSCOCO images from some split:
 parser.add_argument('--input_fc_dir', type=str, default='',
@@ -70,18 +70,18 @@ parser.add_argument('--input_box_dir', type=str, default='',
                 help='path to the h5file containing the preprocessed dataset')
 parser.add_argument('--input_label_h5', type=str, default='',
                 help='path to the h5file containing the preprocessed dataset')
-parser.add_argument('--input_json', type=str, default='', 
+parser.add_argument('--input_json', type=str, default='',
                 help='path to the json file containing additional info and vocab. empty = fetch from model checkpoint.')
-parser.add_argument('--split', type=str, default='test', 
+parser.add_argument('--split', type=str, default='test',
                 help='if running on MSCOCO images, which split to use: val|test|train')
-parser.add_argument('--coco_json', type=str, default='', 
+parser.add_argument('--coco_json', type=str, default='',
                 help='if nonempty then use this file in DataLoaderRaw (see docs there). Used only in MSCOCO test evaluation, where we have a specific json file of only test set images.')
 # misc
-parser.add_argument('--id', type=str, default='', 
+parser.add_argument('--id', type=str, default='',
                 help='an id identifying this run/job. used only if language_eval = 1 for appending to intermediate files')
-parser.add_argument('--verbose_beam', type=int, default=1, 
+parser.add_argument('--verbose_beam', type=int, default=1,
                 help='if we need to print out all beam search beams.')
-parser.add_argument('--verbose_loss', type=int, default=0, 
+parser.add_argument('--verbose_loss', type=int, default=0,
                 help='if we need to calculate loss.')
 
 opt = parser.parse_args()
@@ -123,7 +123,7 @@ crit = utils.LanguageModelCriterion()
 if len(opt.image_folder) == 0:
   loader = DataLoader(opt)
 else:
-  loader = DataLoaderRaw({'folder_path': opt.image_folder, 
+  loader = DataLoaderRaw({'folder_path': opt.image_folder,
                             'coco_json': opt.coco_json,
                             'batch_size': opt.batch_size,
                             'cnn_model': opt.cnn_model})
@@ -133,7 +133,7 @@ loader.ix_to_word = infos['vocab']
 
 
 # Set sample options
-loss, split_predictions, lang_stats = eval_utils.eval_split(model, crit, loader, 
+loss, split_predictions, lang_stats = eval_utils.eval_split(model, crit, loader,
     vars(opt))
 
 print('loss: ', loss)

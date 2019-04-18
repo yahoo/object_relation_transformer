@@ -7,7 +7,6 @@ import torch
 import torch.nn as nn
 import numpy as np
 import torch.optim as optim
-import time
 
 def apply_along_batch(func, M):
     #apply torch function for each image in a batch, and concatenate results back into a single tensor
@@ -69,8 +68,6 @@ class LanguageModelCriterion(nn.Module):
 
         output = -input.gather(2, target.unsqueeze(2)).squeeze(2) * mask
         output = torch.sum(output) / torch.sum(mask)
-        #import IPython
-        #IPython.embed()
 
         return output
 
@@ -217,6 +214,16 @@ def get_std_opt(model, factor=1, warmup=2000):
             torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
 
 def BoxRelationalEmbedding(f_g, dim_g=64, wave_len=1000):
+    """
+    Given a tensor with bbox coordinates for detected objects on each batch image,
+    this function computes a matrix for each image
+
+    with entry (i,j) given by a vector representation of the
+    displacement between the coordinates of bbox_i, and bbox_j
+
+    input: np.array of shape=(batch_size, max_nr_bounding_boxes, 4)
+    output: np.array of shape=(batch_size, max_nr_bounding_boxes, max_nr_bounding_boxes, 64)
+    """
     #returns a relational embedding for each pair of bboxes, with dimension = dim_g
     #follow implementation of https://github.com/heefe92/Relation_Networks-pytorch/blob/master/model.py#L1014-L1055
     batch_size = f_g.size(0)
@@ -264,6 +271,12 @@ def BoxRelationalEmbedding(f_g, dim_g=64, wave_len=1000):
 
 
 def get_box_feats(boxes, d):
+    """
+    Given the bounding box coordinates for an object on an image, this function
+    generates the trivial horizontal, and vertical 0-1 vector encoding of the bbox.
+
+    This function is currently not used anywhere else in our codebase.
+    """
     h,w = boxes.shape[:2]
     boxes_times_d = (d*boxes).astype(np.int32)
     boxes_wmin = boxes_times_d[:,:,0]

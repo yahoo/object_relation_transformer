@@ -299,8 +299,9 @@ class BoxMultiHeadedAttention(nn.Module):
         geo_feature_dim = self.dim_g
         self.h = h
         #matrices W_q, W_k, W_v, and one last projection layer
-        self.linears = clones(nn.Linear(d_model, d_model), 4)
+        self.linears = clones(nn.Linear(d_model, d_model), 3)
         self.WGs = clones(nn.Linear(geo_feature_dim, 1, bias=True),8)
+        self.linear = nn.Linear(d_model, d_model)
         self.attn = None
         self.dropout = nn.Dropout(p=dropout)
 
@@ -332,12 +333,10 @@ class BoxMultiHeadedAttention(nn.Module):
         # 3) "Concat" using a view and apply a final linear.
         x = x.transpose(1, 2).contiguous() \
              .view(nbatches, -1, self.h * self.d_k)
-        #SIMAO added this
+
         x= input_value + x
-        #import IPython
-        #IPython.embed()
-        return self.linears[-1](x)
-        #eturn self.linears[-1](input_query)
+        return self.linear(x)
+
 
 class PositionwiseFeedForward(nn.Module):
     "Implements FFN equation."
@@ -481,7 +480,6 @@ class RelationTransformerModel(CaptionModel):
 
     def _prepare_feature(self, att_feats, att_masks=None, boxes=None, seq=None):
         att_feats, att_masks = self.clip_att(att_feats, att_masks)
-
         att_feats = pack_wrapper(self.att_embed, att_feats, att_masks)
 
         if att_masks is None:
