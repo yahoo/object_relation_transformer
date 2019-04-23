@@ -1,5 +1,5 @@
 ## Eval
-Run `eval.py` on a trained model checkpoint saved under `--output_dir`: `model.pth`, or `model-best.pth`.
+Run `eval.py` on a model checkpoint saved under `[TRAINING_DIR]/model.pth`, or `[TRAINING_DIR]/model-best.pth`.
 
 You can specify the following parameters:
 
