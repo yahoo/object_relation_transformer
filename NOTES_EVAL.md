@@ -1,7 +1,7 @@
 ## Eval
 Run `eval.py` on a model checkpoint saved under `[TRAINING_DIR]/model.pth`, or `[TRAINING_DIR]/model-best.pth`.
 
-You can specify the following parameters:
+You can specify additional parameters:
 
 * `model` (`str`): path to trained model checkpoint.
 * `image_root` (`str`): path to base_dir of your validation data.
@@ -30,7 +30,7 @@ python eval.py \
 ## Inference
 For inference set `--language_eval=0`.
 
-## Visualize sample
+## Visualize
 To visualize a sample of generated captions:
 1. Run eval.py with flag --dump_images 1.
 2. Start a server to display sample images.
