@@ -36,5 +36,5 @@ To visualize a sample of generated captions:
 2. Start a server to display sample images.
 ```bash
 $ cd vis
-$ python -m SimpleHTTPServer
+$ python -m SimpleHTTPServer [PORT_NUMBER]
 ```
