@@ -32,9 +32,6 @@ def add_summary_value(writer, key, value, iteration):
 def train(opt):
     # Deal with feature things before anything
     opt.use_att = utils.if_use_att(opt.caption_model)
-    #if opt.use_box: opt.att_feat_size = opt.att_feat_size + 5
-    #SIMAO
-
 
     loader = DataLoader(opt)
 
@@ -190,7 +187,8 @@ def train(opt):
         if (iteration % opt.save_checkpoint_every == 0):
             # eval model
             eval_kwargs = {'split': 'val',
-                            'dataset': opt.input_json}
+                            'dataset': opt.input_json,
+                            'use_box': opt.use_box}
             eval_kwargs.update(vars(opt))
             val_loss, predictions, lang_stats = eval_utils.eval_split(dp_model, crit, loader, eval_kwargs)
 

@@ -6,17 +6,39 @@ import json
 import numpy as np
 
 import time
-import os
+import os, sys
 from six.moves import cPickle
 
 import opts
 import models
 from dataloader import *
 from dataloaderraw import *
-import eval_utils
 import argparse
 import misc.utils as utils
 import torch
+
+'''
+To run inference set --language_eval=0
+To run evaluation metrics set --language_eval=1
+To visualize a sample set --dump_images 1 --num_images 100
+(It is recommended to keep num_images small, as this will save num_images on disk under vis/)
+
+e.g.: python eval.py \
+        --dump_images 1 \
+        --num_images 100 \
+        --model /efs/home/sherdade/experiments/captioning/relation_rewritten_with_relu/model.pth \
+        --infos_path /efs/home/sherdade/experiments/captioning/relation_rewritten_with_relu/infos_fc_transformer_bu_adaptive-best.pkl \
+        --image_root /mydisk/data/captioning_data/coco/ \
+        --input_json /mydisk/data/captioning_data/cocotalk.json \
+        --input_fc_dir /mydisk/data/captioning_data/cocobu_adaptive_fc \
+        --input_att_dir /mydisk/data/captioning_data/cocobu_adaptive_att \
+        --input_box_dir /mydisk/data/captioning_data/cocobu_adaptive_box \
+        --input_rel_box_dir=/mydisk/data/captioning_data/cocobu_adaptive_box_relative/ \
+        --input_label_h5 /mydisk/data/captioning_data/cocotalk_label.h5  \
+        --use_box 1
+        --language_eval=1
+'''
+
 
 # Input arguments and options
 parser = argparse.ArgumentParser()
@@ -72,10 +94,17 @@ parser.add_argument('--input_label_h5', type=str, default='',
                 help='path to the h5file containing the preprocessed dataset')
 parser.add_argument('--input_json', type=str, default='',
                 help='path to the json file containing additional info and vocab. empty = fetch from model checkpoint.')
+parser.add_argument('--imagenet_weights_dir', type=str, default='',
+                help='path to the directory containing the weights of a model trained on imagenet')
 parser.add_argument('--split', type=str, default='test',
                 help='if running on MSCOCO images, which split to use: val|test|train')
 parser.add_argument('--coco_json', type=str, default='',
                 help='if nonempty then use this file in DataLoaderRaw (see docs there). Used only in MSCOCO test evaluation, where we have a specific json file of only test set images.')
+
+parser.add_argument('--use_box', type=int,
+                help='If use box features')
+parser.add_argument('--input_rel_box_dir',type=str, default='',
+                help="this directory contains the bboxes in relative coordinates for the corresponding image features in --input_att_dir")
 # misc
 parser.add_argument('--id', type=str, default='',
                 help='an id identifying this run/job. used only if language_eval = 1 for appending to intermediate files')
@@ -84,8 +113,9 @@ parser.add_argument('--verbose_beam', type=int, default=1,
 parser.add_argument('--verbose_loss', type=int, default=0,
                 help='if we need to calculate loss.')
 
-opt = parser.parse_args()
 
+opt = parser.parse_args()
+print('WOW'*100, opt.use_box)
 # Load infos
 with open(opt.infos_path) as f:
     infos = cPickle.load(f)
@@ -102,11 +132,17 @@ if opt.batch_size == 0:
     opt.batch_size = infos['opt'].batch_size
 if len(opt.id) == 0:
     opt.id = infos['opt'].id
+if opt.use_box is None:
+    opt.use_box = infos['opt'].use_box
 ignore = ["id", "batch_size", "beam_size", "start_from", "language_eval"]
 for k in vars(infos['opt']).keys():
     if k not in ignore:
         if k in vars(opt):
-            assert vars(opt)[k] == vars(infos['opt'])[k], k + ' option not consistent'
+            #assert vars(opt)[k] == vars(infos['opt'])[k], k + ' option not consistent'
+            if vars(opt)[k] != vars(infos['opt'])[k]:
+                found_issue = k + ' option not consistent'
+                if not utils.want_to_continue(found_issue):
+                    exit()
         else:
             vars(opt).update({k: vars(infos['opt'])[k]}) # copy over options from model
 
@@ -117,22 +153,26 @@ model = models.setup(opt)
 model.load_state_dict(torch.load(opt.model))
 model.cuda()
 model.eval()
+
 crit = utils.LanguageModelCriterion()
 
 # Create the Data Loader instance
+
 if len(opt.image_folder) == 0:
   loader = DataLoader(opt)
 else:
   loader = DataLoaderRaw({'folder_path': opt.image_folder,
                             'coco_json': opt.coco_json,
                             'batch_size': opt.batch_size,
-                            'cnn_model': opt.cnn_model})
+                            'cnn_model': opt.cnn_model,
+                            'imagenet_weights_dir': opt.imagenet_weights_dir})
 # When eval using provided pretrained model, the vocab may be different from what you have in your cocotalk.json
 # So make sure to use the vocab in infos file.
 loader.ix_to_word = infos['vocab']
 
 
 # Set sample options
+import eval_utils
 loss, split_predictions, lang_stats = eval_utils.eval_split(model, crit, loader,
     vars(opt))
 
