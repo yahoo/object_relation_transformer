@@ -48,6 +48,15 @@ class RewardCriterion(nn.Module):
         super(RewardCriterion, self).__init__()
 
     def forward(self, input, seq, reward):
+        '''
+        This function computes
+            log(y_t) * reward * mask_t  (where mask_t zeroes out non-words in the sequence)
+        given
+            input = predicted probability
+            sequence = predicted word index
+            reward = ...
+        '''
+
         input = to_contiguous(input).view(-1)
         reward = to_contiguous(reward).view(-1)
         mask = (seq>0).float()
@@ -226,9 +235,10 @@ def BoxRelationalEmbedding(f_g, dim_g=64, wave_len=1000):
     """
     #returns a relational embedding for each pair of bboxes, with dimension = dim_g
     #follow implementation of https://github.com/heefe92/Relation_Networks-pytorch/blob/master/model.py#L1014-L1055
+
     batch_size = f_g.size(0)
 
-    x_min, y_min, x_max, y_max = torch.chunk(f_g, 4, dim=2)
+    x_min, y_min, x_max, y_max = torch.chunk(f_g, 4, dim=-1)
 
     cx = (x_min + x_max) * 0.5
     cy = (y_min + y_max) * 0.5
@@ -350,3 +360,19 @@ def torch_get_box_feats(boxes, d):
                 w_vector = torch.cat([torch.zeros(boxes_wmin[i,j], device=device), torch.ones(boxes_wmax[i,j]-boxes_wmin[i,j], device=device), torch.zeros(d-boxes_wmax[i,j], device=device)])
                 box_wfeats[i,j]+=w_vector
     return(box_hfeats, box_wfeats)
+
+
+def want_to_continue(found_issue):
+    print('--' * 10)
+    print(found_issue + '. Would you like to continue? [y/N]')
+
+    yes = {'yes','y', 'ye', 'Y'}
+    no = {'no','n','','N'}
+
+    choice = raw_input().lower()
+    if choice in yes:
+        return True
+    elif choice in no:
+        return False
+    else:
+        sys.stdout.write("Please respond with 'y' or 'N'")

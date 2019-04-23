@@ -22,11 +22,12 @@ from misc.resnet_utils import myResnet
 import misc.resnet
 
 class DataLoaderRaw():
-    
+
     def __init__(self, opt):
         self.opt = opt
         self.coco_json = opt.get('coco_json', '')
         self.folder_path = opt.get('folder_path', '')
+        self.cnn_weight_dir = opt.get('cnn_weight_dir', '')
 
         self.batch_size = opt.get('batch_size', 1)
         self.seq_per_img = 1
@@ -34,7 +35,7 @@ class DataLoaderRaw():
         # Load resnet
         self.cnn_model = opt.get('cnn_model', 'resnet101')
         self.my_resnet = getattr(misc.resnet, self.cnn_model)()
-        self.my_resnet.load_state_dict(torch.load('./data/imagenet_weights/'+self.cnn_model+'.pth'))
+        self.my_resnet.load_state_dict(torch.load(os.path.join(self.cnn_weight_dir, self.cnn_model+'.pth')))
         self.my_resnet = myResnet(self.my_resnet)
         self.my_resnet.cuda()
         self.my_resnet.eval()
@@ -136,4 +137,3 @@ class DataLoaderRaw():
 
     def get_vocab(self):
         return self.ix_to_word
-        

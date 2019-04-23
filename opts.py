@@ -3,7 +3,7 @@ import argparse
 def parse_opt():
     parser = argparse.ArgumentParser()
     # Data input settings
-    parser.add_argument('--input_json', type=str, default='data/coco.json',
+    parser.add_argument('--input_json', type=str, default='/data/captioning_data/dataset_coco.json',
                     help='path to the json file containing additional info and vocab')
     parser.add_argument('--input_fc_dir', type=str, default='data/cocotalk_fc',
                     help='path to the directory containing the preprocessed fc feats')
@@ -11,7 +11,7 @@ def parse_opt():
                     help='path to the directory containing the preprocessed att feats')
     parser.add_argument('--input_box_dir', type=str, default='data/cocotalk_box',
                     help='path to the directory containing the boxes of att feats')
-    parser.add_argument('--input_rel_box_dir',type=str, default='/mydisk/Data/captioning_data/cocobu_adaptive_box_relative/',
+    parser.add_argument('--input_rel_box_dir',type=str, default='/data/captioning_data/cocobu_adaptive_box_relative/',
                     help="this directory contains the bboxes in relative coordinates for the corresponding image features in --input_att_dir")
     parser.add_argument('--input_label_h5', type=str, default='data/coco_label.h5',
                     help='path to the h5file containing the preprocessed dataset')
@@ -27,7 +27,7 @@ def parse_opt():
 
     # Model settings
     parser.add_argument('--caption_model', type=str, default="show_tell",
-                    help='show_tell, show_attend_tell, all_img, fc, att2in, att2in2, att2all2, adaatt, adaattmo, topdown, stackatt, denseatt, transformer')
+                    help='show_tell, show_attend_tell, all_img, fc, att2in, att2in2, att2all2, adaatt, adaattmo, topdown, stackatt, denseatt, transformer, relation_transformer')
     parser.add_argument('--rnn_size', type=int, default=512,
                     help='size of the rnn in number of hidden nodes in each layer')
     parser.add_argument('--num_layers', type=int, default=1,
@@ -122,7 +122,6 @@ def parse_opt():
                     help='an id identifying this run/job. used in cross-val and appended when writing progress files')
     parser.add_argument('--train_only', type=int, default=0,
                     help='if true then use 80k, else use 110k')
-
 
     # Reward
     parser.add_argument('--cider_reward_weight', type=float, default=1,

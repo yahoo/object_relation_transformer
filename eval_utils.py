@@ -16,8 +16,8 @@ import sys
 import misc.utils as utils
 
 import opts
-model_opts = opts.parse_opt()
-
+#model_opts = opts.parse_opt()
+#use_box=True
 def language_eval(dataset, preds, model_id, split):
     import sys
     sys.path.append("coco-caption")
@@ -67,6 +67,7 @@ def eval_split(model, crit, loader, eval_kwargs={}):
     lang_eval = eval_kwargs.get('language_eval', 0)
     dataset = eval_kwargs.get('dataset', 'coco')
     beam_size = eval_kwargs.get('beam_size', 1)
+    use_box = eval_kwargs.get('use_box', 0)
 
     # Make sure in the evaluation mode
     model.eval()
@@ -89,7 +90,8 @@ def eval_split(model, crit, loader, eval_kwargs={}):
             fc_feats, att_feats, labels, masks, att_masks = tmp
 
             with torch.no_grad():
-                if model_opts.use_box:
+                #if model_opts.use_box:
+                if use_box==True:
                     boxes_data=data['boxes']
                     boxes = torch.from_numpy(boxes_data).cuda() if boxes_data is not None else boxes_data
                     loss = crit(model(fc_feats, att_feats, boxes, labels, att_masks), labels[:,1:], masks[:,1:]).item()
@@ -108,7 +110,8 @@ def eval_split(model, crit, loader, eval_kwargs={}):
 
         # forward the model to also get generated samples for each image
         with torch.no_grad():
-            if model_opts.use_box:
+            #if model_opts.use_box:
+            if use_box==True:
                 boxes_data= data['boxes'][np.arange(loader.batch_size) * loader.seq_per_img]
                 boxes = torch.from_numpy(boxes_data).cuda() if boxes_data is not None else boxes_data
                 seq = model(fc_feats, att_feats, boxes, att_masks, opt=eval_kwargs, mode='sample')[0].data

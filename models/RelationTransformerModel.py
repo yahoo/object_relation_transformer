@@ -210,8 +210,7 @@ def box_attention(query, key, value, box_relation_embds_matrix, mask=None, dropo
     N = value.size()[0]
     dim_k = key.size()[-1]
     dim_g = box_relation_embds_matrix.size()[-1]
-    import IPython
-    IPython.embed()
+
     w_q = query.view(1,N,dim_k)
     w_k = key.view(N,1,self.dim_k)
     w_v = value
@@ -224,8 +223,6 @@ def box_attention(query, key, value, box_relation_embds_matrix, mask=None, dropo
 
     w_g = box_relation_embds_matrix.view(N,N)
     w_a = scaled_dot.view(N,N)
-    #import IPython
-    #IPython.embed()
     # multiplying log of geometric weights by feature weights
     w_mn = torch.log(torch.clamp(w_g, min = 1e-6)) + w_a
     w_mn = torch.nn.Softmax(dim=1)(w_mn)
@@ -252,16 +249,15 @@ def attention(query, key, value, mask=None, dropout=None):
         p_attn = dropout(p_attn)
     return torch.matmul(p_attn, value), p_attn
 
+
 def box_attention(query, key, value, box_relation_embds_matrix, mask=None, dropout=None):
     #Compute 'Scaled Dot Product Attention as in paper Relation Networks for Object Detection'.
     #Follow the implementation in https://github.com/heefe92/Relation_Networks-pytorch/blob/master/model.py#L1026-L1055
 
-
     N = value.size()[:2]
     dim_k = key.size(-1)
     dim_g = box_relation_embds_matrix.size()[-1]
-    #import IPython
-    #IPython.embed()
+
     w_q = query
     w_k = key.transpose(-2, -1)
     w_v = value
@@ -284,8 +280,6 @@ def box_attention(query, key, value, box_relation_embds_matrix, mask=None, dropo
         w_mn = dropout(w_mn)
 
     output = torch.matmul(w_mn,w_v)
-    #SIMAO: comented_out
-    #output = torch.sum(output,-2)
     return output, w_mn
 
 class BoxMultiHeadedAttention(nn.Module):
@@ -299,9 +293,9 @@ class BoxMultiHeadedAttention(nn.Module):
         geo_feature_dim = self.dim_g
         self.h = h
         #matrices W_q, W_k, W_v, and one last projection layer
-        self.linears = clones(nn.Linear(d_model, d_model), 3)
+        self.linears = clones(nn.Linear(d_model, d_model), 4)
         self.WGs = clones(nn.Linear(geo_feature_dim, 1, bias=True),8)
-        self.linear = nn.Linear(d_model, d_model)
+        #self.linear = nn.Linear(d_model, d_model)
         self.attn = None
         self.dropout = nn.Dropout(p=dropout)
 
@@ -335,7 +329,7 @@ class BoxMultiHeadedAttention(nn.Module):
              .view(nbatches, -1, self.h * self.d_k)
 
         x= input_value + x
-        return self.linear(x)
+        return self.linears[-1](x)
 
 
 class PositionwiseFeedForward(nn.Module):
@@ -379,7 +373,7 @@ class PositionalEncoding(nn.Module):
         x = x + self.pe[:, :x.size(1)]
         return self.dropout(x)
 
-#SIMAO
+
 class RelationTransformerModel(CaptionModel):
 
     def make_model(self, src_vocab, tgt_vocab, N=6,
@@ -479,6 +473,7 @@ class RelationTransformerModel(CaptionModel):
     #     return fc_feats, att_feats, p_att_feats
 
     def _prepare_feature(self, att_feats, att_masks=None, boxes=None, seq=None):
+
         att_feats, att_masks = self.clip_att(att_feats, att_masks)
         att_feats = pack_wrapper(self.att_embed, att_feats, att_masks)
 
@@ -500,6 +495,7 @@ class RelationTransformerModel(CaptionModel):
         return att_feats,boxes, seq, att_masks, seq_mask
 
     def _forward(self, fc_feats, att_feats, boxes,  seq, att_masks=None):
+
         att_feats, boxes, seq, att_masks, seq_mask = self._prepare_feature(att_feats, att_masks, boxes, seq)
         out = self.model(att_feats, boxes, seq, att_masks, seq_mask)
         outputs = self.model.generator(out)

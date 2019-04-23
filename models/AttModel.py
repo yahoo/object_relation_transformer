@@ -133,7 +133,7 @@ class AttModel(CaptionModel):
                     prob_prev = torch.exp(outputs[:, i-1].detach()) # fetch prev distribution: shape Nx(M+1)
                     it.index_copy_(0, sample_ind, torch.multinomial(prob_prev, 1).view(-1).index_select(0, sample_ind))
             else:
-                it = seq[:, i].clone()          
+                it = seq[:, i].clone()
             # break if all the sequences end
             if i >= 1 and seq[:, i].sum() == 0:
                 break
@@ -204,7 +204,7 @@ class AttModel(CaptionModel):
                 it = fc_feats.new_zeros(batch_size, dtype=torch.long)
 
             logprobs, state = self.get_logprobs_state(it, p_fc_feats, p_att_feats, pp_att_feats, p_att_masks, state)
-            
+
             if decoding_constraint and t > 0:
                 tmp = logprobs.new_zeros(logprobs.size())
                 tmp.scatter_(1, seq[:,t-1].data.unsqueeze(1), float('-inf'))
@@ -324,7 +324,7 @@ class AdaAtt_lstm(nn.Module):
         top_h = F.dropout(top_h, self.drop_prob_lm, self.training)
         fake_region = F.dropout(fake_region, self.drop_prob_lm, self.training)
 
-        state = (torch.cat([_.unsqueeze(0) for _ in hs], 0), 
+        state = (torch.cat([_.unsqueeze(0) for _ in hs], 0),
                 torch.cat([_.unsqueeze(0) for _ in cs], 0))
         return top_h, fake_region, state
 
@@ -340,14 +340,14 @@ class AdaAtt_attention(nn.Module):
         # fake region embed
         self.fr_linear = nn.Sequential(
             nn.Linear(self.rnn_size, self.input_encoding_size),
-            nn.ReLU(), 
+            nn.ReLU(),
             nn.Dropout(self.drop_prob_lm))
         self.fr_embed = nn.Linear(self.input_encoding_size, self.att_hid_size)
 
         # h out embed
         self.ho_linear = nn.Sequential(
             nn.Linear(self.rnn_size, self.input_encoding_size),
-            nn.Tanh(), 
+            nn.Tanh(),
             nn.Dropout(self.drop_prob_lm))
         self.ho_embed = nn.Linear(self.input_encoding_size, self.att_hid_size)
 
@@ -375,7 +375,7 @@ class AdaAtt_attention(nn.Module):
 
         hA = F.tanh(img_all_embed + txt_replicate)
         hA = F.dropout(hA,self.drop_prob_lm, self.training)
-        
+
         hAflat = self.alpha_net(hA.view(-1, self.att_hid_size))
         PI = F.softmax(hAflat.view(-1, att_size + 1), dim=1)
 
@@ -521,7 +521,7 @@ class Attention(nn.Module):
         # The p_att_feats here is already projected
         att_size = att_feats.numel() // att_feats.size(0) // att_feats.size(-1)
         att = p_att_feats.view(-1, att_size, self.att_hid_size)
-        
+
         att_h = self.h2att(h)                        # batch * att_hid_size
         att_h = att_h.unsqueeze(1).expand_as(att)            # batch * att_size * att_hid_size
         dot = att + att_h                                   # batch * att_size * att_hid_size
@@ -529,7 +529,7 @@ class Attention(nn.Module):
         dot = dot.view(-1, self.att_hid_size)               # (batch * att_size) * att_hid_size
         dot = self.alpha_net(dot)                           # (batch * att_size) * 1
         dot = dot.view(-1, att_size)                        # batch * att_size
-        
+
         weight = F.softmax(dot, dim=1)                             # batch * att_size
         if att_masks is not None:
             weight = weight * att_masks.view(-1, att_size).float()
@@ -550,7 +550,7 @@ class Att2in2Core(nn.Module):
         self.fc_feat_size = opt.fc_feat_size
         self.att_feat_size = opt.att_feat_size
         self.att_hid_size = opt.att_hid_size
-        
+
         # Build a LSTM
         self.a2c = nn.Linear(self.rnn_size, 2 * self.rnn_size)
         self.i2h = nn.Linear(self.input_encoding_size, 5 * self.rnn_size)
@@ -602,7 +602,7 @@ class Att2all2Core(nn.Module):
         self.fc_feat_size = opt.fc_feat_size
         self.att_feat_size = opt.att_feat_size
         self.att_hid_size = opt.att_hid_size
-        
+
         # Build a LSTM
         self.a2h = nn.Linear(self.rnn_size, 5 * self.rnn_size)
         self.i2h = nn.Linear(self.input_encoding_size, 5 * self.rnn_size)
