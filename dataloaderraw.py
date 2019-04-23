@@ -27,7 +27,7 @@ class DataLoaderRaw():
         self.opt = opt
         self.coco_json = opt.get('coco_json', '')
         self.folder_path = opt.get('folder_path', '')
-        self.imagenet_weights_dir = opt.get('imagenet_weights_dir', '')
+        self.cnn_weight_dir = opt.get('cnn_weight_dir', '')
 
         self.batch_size = opt.get('batch_size', 1)
         self.seq_per_img = 1
@@ -35,7 +35,7 @@ class DataLoaderRaw():
         # Load resnet
         self.cnn_model = opt.get('cnn_model', 'resnet101')
         self.my_resnet = getattr(misc.resnet, self.cnn_model)()
-        self.my_resnet.load_state_dict(torch.load(os.path.join(self.imagenet_weights_dir, self.cnn_model+'.pth')))
+        self.my_resnet.load_state_dict(torch.load(os.path.join(self.cnn_weight_dir, self.cnn_model+'.pth')))
         self.my_resnet = myResnet(self.my_resnet)
         self.my_resnet.cuda()
         self.my_resnet.eval()

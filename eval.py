@@ -94,15 +94,13 @@ parser.add_argument('--input_label_h5', type=str, default='',
                 help='path to the h5file containing the preprocessed dataset')
 parser.add_argument('--input_json', type=str, default='',
                 help='path to the json file containing additional info and vocab. empty = fetch from model checkpoint.')
-parser.add_argument('--imagenet_weights_dir', type=str, default='',
+parser.add_argument('--cnn_weight_dir', type=str, default='',
                 help='path to the directory containing the weights of a model trained on imagenet')
 parser.add_argument('--split', type=str, default='test',
                 help='if running on MSCOCO images, which split to use: val|test|train')
 parser.add_argument('--coco_json', type=str, default='',
                 help='if nonempty then use this file in DataLoaderRaw (see docs there). Used only in MSCOCO test evaluation, where we have a specific json file of only test set images.')
 
-parser.add_argument('--use_box', type=int,
-                help='If use box features')
 parser.add_argument('--input_rel_box_dir',type=str, default='',
                 help="this directory contains the bboxes in relative coordinates for the corresponding image features in --input_att_dir")
 # misc
@@ -115,7 +113,7 @@ parser.add_argument('--verbose_loss', type=int, default=0,
 
 
 opt = parser.parse_args()
-print('WOW'*100, opt.use_box)
+
 # Load infos
 with open(opt.infos_path) as f:
     infos = cPickle.load(f)
@@ -132,8 +130,7 @@ if opt.batch_size == 0:
     opt.batch_size = infos['opt'].batch_size
 if len(opt.id) == 0:
     opt.id = infos['opt'].id
-if opt.use_box is None:
-    opt.use_box = infos['opt'].use_box
+
 ignore = ["id", "batch_size", "beam_size", "start_from", "language_eval"]
 for k in vars(infos['opt']).keys():
     if k not in ignore:
@@ -165,7 +162,7 @@ else:
                             'coco_json': opt.coco_json,
                             'batch_size': opt.batch_size,
                             'cnn_model': opt.cnn_model,
-                            'imagenet_weights_dir': opt.imagenet_weights_dir})
+                            'cnn_weight_dir': opt.cnn_weight_dir})
 # When eval using provided pretrained model, the vocab may be different from what you have in your cocotalk.json
 # So make sure to use the vocab in infos file.
 loader.ix_to_word = infos['vocab']

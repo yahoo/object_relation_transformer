@@ -48,10 +48,15 @@ class RewardCriterion(nn.Module):
         super(RewardCriterion, self).__init__()
 
     def forward(self, input, seq, reward):
-        # input = predicted probability
-        # sequence = predicted word index
-        # reward =
-        # log(y_t) * reward * mask_t  (where mask_t zeroes out non-words in the sequence)
+        '''
+        This function computes
+            log(y_t) * reward * mask_t  (where mask_t zeroes out non-words in the sequence)
+        given
+            input = predicted probability
+            sequence = predicted word index
+            reward = ...
+        '''
+
         input = to_contiguous(input).view(-1)
         reward = to_contiguous(reward).view(-1)
         mask = (seq>0).float()
@@ -358,7 +363,8 @@ def torch_get_box_feats(boxes, d):
 
 
 def want_to_continue(found_issue):
-    print('\n'+found_issue + '. Would you like to continue? [y/N]')
+    print('--' * 10)
+    print(found_issue + '. Would you like to continue? [y/N]')
 
     yes = {'yes','y', 'ye', 'Y'}
     no = {'no','n','','N'}

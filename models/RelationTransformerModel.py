@@ -495,7 +495,6 @@ class RelationTransformerModel(CaptionModel):
         return att_feats,boxes, seq, att_masks, seq_mask
 
     def _forward(self, fc_feats, att_feats, boxes,  seq, att_masks=None):
-        x=3
 
         att_feats, boxes, seq, att_masks, seq_mask = self._prepare_feature(att_feats, att_masks, boxes, seq)
         out = self.model(att_feats, boxes, seq, att_masks, seq_mask)
