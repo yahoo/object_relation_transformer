@@ -144,8 +144,13 @@ def train(opt):
             else:
                 loss = crit(dp_model(fc_feats, att_feats, labels, att_masks), labels[:,1:], masks[:,1:])
         else:
-            gen_result, sample_logprobs = dp_model(fc_feats, att_feats, att_masks, opt={'sample_max':0}, mode='sample')
-            reward = get_self_critical_reward(dp_model, fc_feats, att_feats, att_masks, data, gen_result, opt)
+            if opt.use_box:
+                gen_result, sample_logprobs = dp_model(fc_feats, att_feats, boxes, att_masks, opt={'sample_max':0}, mode='sample')
+                reward = get_self_critical_reward(dp_model, fc_feats, att_feats, boxes, att_masks, data, gen_result, opt)
+            else:
+                gen_result, sample_logprobs = dp_model(fc_feats, att_feats, att_masks, opt={'sample_max':0}, mode='sample')
+                reward = get_self_critical_reward(dp_model, fc_feats, att_feats, None, att_masks, data, gen_result, opt)
+
             loss = rl_crit(sample_logprobs, gen_result.data, torch.from_numpy(reward).float().cuda())
 
         loss.backward()
