@@ -70,7 +70,7 @@ python train.py --id fc_bu_fixed --caption_model fc --input_json data/cocotalk.j
 
 ## Train on COCO with ResNet101 features and self-critical training
 ```
-python scripts/prepro_ngrams.py --input_json data/dataset_coco.json --dict_json data/cocotalk.json --output_pkl 2data/coco-train --split train
+python scripts/prepro_ngrams.py --input_json data/dataset_coco.json --dict_json data/cocotalk.json --output_pkl data/coco-train --split train
 cd experiments
 mkdir expt003-resnet101-features-fc-rl-model
 cp -r expt001-resnet101-features-fc-model/* expt003-resnet101-features-fc-rl-model
