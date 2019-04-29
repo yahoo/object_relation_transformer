@@ -58,7 +58,7 @@ cd /mnt/bigdisk/data/bu_data
 https://imagecaption.blob.core.windows.net/imagecaption/trainval_36.zip
 unzip trainval_36.zip
 popd
-python scripts/make_bu_data.py --downloaded_feats /mnt/bigdisk/data/bu_data --output_dir /mnt/bigdisk/data/cocobu_adaptive
+python scripts/make_bu_data.py --downloaded_feats /mnt/bigdisk/data/bu_data --output_dir /mnt/bigdisk/data/cocobu_fixed
 ```
 Note: the script needs to be modified to load the appropriate files
 
