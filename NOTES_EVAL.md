@@ -38,3 +38,6 @@ To visualize a sample of generated captions:
 $ cd vis
 $ python -m SimpleHTTPServer [PORT_NUMBER]
 ```
+
+## Xperiments
+List of experimental results - [here](https://docs.google.com/spreadsheets/d/1RrXkE85hihVLJH__khewEJhelNPEAqQ5wpxEZw0C5fQ/edit?usp=sharing)
