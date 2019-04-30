@@ -5,6 +5,7 @@ from __future__ import print_function
 import torch
 import torch.nn as nn
 
+from six.moves import cPickle as pickle
 import numpy as np
 import json
 from json import encoder
@@ -14,6 +15,9 @@ import time
 import os
 import sys
 import misc.utils as utils
+
+COCO_EVAL_PKL_FILE_TEMPLATE = '%s_%s_coco_eval.pkl'
+
 
 import opts
 #model_opts = opts.parse_opt()
@@ -27,9 +31,10 @@ def language_eval(dataset, preds, model_id, split):
 
     # encoder.FLOAT_REPR = lambda o: format(o, '.3f')
 
-    if not os.path.isdir('eval_results'):
-        os.mkdir('eval_results')
-    cache_path = os.path.join('eval_results/', model_id + '_' + split + '.json')
+    results_dir = 'eval_results'
+    if not os.path.isdir(results_dir):
+        os.mkdir(results_dir)
+    cache_path = os.path.join(results_dir, model_id + '_' + split + '.json')
 
     coco = COCO(annFile)
     valids = coco.getImgIds()
@@ -43,6 +48,11 @@ def language_eval(dataset, preds, model_id, split):
     cocoEval = COCOEvalCap(coco, cocoRes)
     cocoEval.params['image_id'] = cocoRes.getImgIds()
     cocoEval.evaluate()
+
+    # Save cocoEval into a pickle to be used later for visualization.
+    pickle_file_name = COCO_EVAL_PKL_FILE_TEMPLATE % (model_id, split)
+    pickle_path = os.path.join(results_dir, pickle_file_name)
+    save_coco_eval_pkl(cocoEval, pickle_path)
 
     # create output dictionary
     out = {}
@@ -126,13 +136,14 @@ def eval_split(model, crit, loader, eval_kwargs={}):
         sents = utils.decode_sequence(loader.get_vocab(), seq)
 
         for k, sent in enumerate(sents):
-            entry = {'image_id': data['infos'][k]['id'], 'caption': sent}
+            image_id = data['infos'][k]['id']
+            entry = {'image_id': image_id, 'caption': sent}
             if eval_kwargs.get('dump_path', 0) == 1:
                 entry['file_name'] = data['infos'][k]['file_path']
             predictions.append(entry)
             if eval_kwargs.get('dump_images', 0) == 1:
                 # dump the raw image to vis/ folder
-                cmd = 'cp "' + os.path.join(eval_kwargs['image_root'], data['infos'][k]['file_path']) + '" vis/imgs/img' + str(len(predictions)) + '.jpg' # bit gross
+                cmd = 'cp "' + os.path.join(eval_kwargs['image_root'], data['infos'][k]['file_path']) + '" vis/imgs/' + str(image_id) + '.jpg' # still gross
                 print(cmd)
                 os.system(cmd)
 
@@ -162,3 +173,10 @@ def eval_split(model, crit, loader, eval_kwargs={}):
     # Switch back to training mode
     model.train()
     return loss_sum/loss_evals, predictions, lang_stats
+
+
+def save_coco_eval_pkl(cocoEval, pickle_path):
+    """Save cocoEval into a pickle file so that we can create visualizations
+    for it later."""
+    with open(pickle_path, 'wb') as pickle_file:
+        pickle.dump(cocoEval, pickle_file)
