@@ -151,11 +151,9 @@ def create_report(coco_eval, report_config):
         _add_summary_table(report_index_file, coco_eval)
         data_frame = json_normalize(coco_eval.imgToEval.values())
         data_frame.set_index(INDEX_COLUMN_NAME, inplace=True)
-        plot_dir_for_html = PathForHTML.from_base_and_relative(
-            out_dir, PLOT_DIR_NAME)
-        os.makedirs(plot_dir_for_html.regular)
-        _add_histograms(report_index_file, plot_dir_for_html,
-                        report_config, data_frame)
+        out_dir_for_html = PathForHTML(out_dir, '.')
+        _add_metric_pages(report_index_file, out_dir_for_html, report_config,
+                          data_frame)
         _add_unlabeled_images(report_index_file, out_dir)
 
 
@@ -168,27 +166,53 @@ def _add_summary_table(html_file, coco_eval):
     html_file.write(summary_data_frame.to_html() + '\n')
 
 
-def _add_histograms(html_file, plot_dir_for_html, report_config, data_frame):
+def _add_metric_pages(html_file, out_dir_for_html, report_config, data_frame):
     # type: (IO, PathForHTML, ReportConfig, DataFrame) -> None
+    plot_dir_for_html = out_dir_for_html.join(PLOT_DIR_NAME)
+    os.makedirs(plot_dir_for_html.regular)
     _write_header(html_file, 'Distribution of different measures (except '
                              'SPICE-related, which come later below)')
     for column_name in COLUMNS_FOR_HISTOGRAM_NON_SPICE:
-        bins = report_config.histogram_bins.get(column_name)
-        _add_histogram(html_file, plot_dir_for_html,
-                       bins, data_frame, column_name)
+        bins = report_config.histogram_bins[column_name]
+        _add_metric_page(html_file, out_dir_for_html, plot_dir_for_html,
+                         bins, data_frame, column_name)
     _write_header(html_file, 'Distribution of SPICE-related measures')
     for column_name in COLUMNS_FOR_HISTOGRAM_SPICE:
-        _add_histogram(html_file, plot_dir_for_html,
-                       report_config.histogram_bins.get(column_name),
-                       data_frame, column_name)
+        bins = report_config.histogram_bins[column_name]
+        _add_metric_page(html_file, out_dir_for_html, plot_dir_for_html,
+                         bins, data_frame, column_name)
 
 
-def _add_histogram(html_file, plot_dir_for_html, bins, data_frame, column_name):
-    # type: (IO, PathForHTML, Optional[numpy.ndarray], DataFrame, str) -> None
+def _add_metric_page(html_file, out_dir_for_html, plot_dir_for_html, bins,
+                     data_frame, column_name):
+    # type: (IO, PathForHTML, PathForHTML, numpy.ndarray, DataFrame, str) -> None
     figure = _plot_histogram(data_frame, bins, column_name)
     image_file_name = column_name + '.jpg'
     image_path_for_html = plot_dir_for_html.join(image_file_name)
-    _save_figure(html_file, image_path_for_html, figure)
+    figure.savefig(image_path_for_html.regular)
+    metric_file_name = column_name + '.html'
+    metric_path_for_html = out_dir_for_html.join(metric_file_name)
+    _save_figure(html_file, image_path_for_html.relative,
+                 metric_path_for_html.relative)
+    _create_metric_html(metric_path_for_html, image_path_for_html,
+                        data_frame[column_name], bins)
+
+
+def _create_metric_html(metric_path_for_html, image_path_for_html, series,
+                        bins):
+    # type: (PathForHTML, PathForHTML, Series, numpy.ndarray) -> None
+    with open(metric_path_for_html.regular, 'w') as metric_file:
+        _save_figure(metric_file, image_path_for_html.relative,
+                     image_path_for_html.relative)
+        _print_metric_stats(metric_file, series)
+        metric_file.write(str(bins))
+
+
+def _print_metric_stats(metric_file, series):
+    # type: (IO, Series) -> None
+    stats = series.describe()
+    metric_file.write(stats.to_frame().to_html(
+        float_format=lambda x: '%.6f' % x) + '\n')
 
 
 def _plot_histogram(data_frame, bins, column_name):
@@ -204,11 +228,10 @@ def _plot_histogram(data_frame, bins, column_name):
     return figure
 
 
-def _save_figure(html_file, image_path_for_html, figure):
-    # type: (IO, PathForHTML, Figure) -> None
-    figure.savefig(image_path_for_html.regular)
-    html_file.write("<img src='%s' width='%d'>\n" % (
-        image_path_for_html.relative, HTML_IMAGE_WIDTH_PIXELS))
+def _save_figure(html_file, image_src, link):
+    # type: (IO, str, str) -> None
+    html_file.write("<a href='%s'><img src='%s' width='%d'></a>\n" % (
+        link, image_src, HTML_IMAGE_WIDTH_PIXELS))
 
 
 def _add_unlabeled_images(html_file, out_dir):
