@@ -1,12 +1,13 @@
-import sys
+import numpy
 import os
+import sys
 import matplotlib.pyplot as plt
 # By using Agg, pyplot will not try to open a display
 plt.switch_backend('Agg')
 from matplotlib.figure import Figure
 from pandas import DataFrame, Series
 from pandas.io.json import json_normalize
-from typing import IO
+from typing import IO, Optional, Dict
 sys.path.append("coco-caption")
 from pycocoevalcap.eval import COCOEvalCap
 
@@ -44,6 +45,31 @@ COLUMNS_FOR_HISTOGRAM_SPICE = [
     EvalColumns.SPICE_CARDINALITY, EvalColumns.SPICE_SIZE]
 
 
+class ReportConfig:
+
+    HISTOGRAM_BINS_DICT = {
+        EvalColumns.CIDER: numpy.arange(0, 6, 0.25),
+        EvalColumns.BLEU1: numpy.arange(0, 1, 0.05),
+        EvalColumns.BLEU2: numpy.arange(0, 1, 0.05),
+        EvalColumns.BLEU3: numpy.arange(0, 1, 0.05),
+        EvalColumns.BLEU4: numpy.arange(0, 1, 0.05),
+        EvalColumns.METEOR: numpy.arange(0, 1, 0.05),
+        EvalColumns.ROUGE_L: numpy.arange(0, 1, 0.05),
+        EvalColumns.SPICE: numpy.arange(0, 1, 0.05),
+        EvalColumns.SPICE_OBJECT: numpy.arange(0, 1, 0.05),
+        EvalColumns.SPICE_ATTRIBUTE: numpy.arange(0, 1, 0.05),
+        EvalColumns.SPICE_RELATION: numpy.arange(0, 1, 0.05),
+        EvalColumns.SPICE_SIZE: numpy.arange(0, 1, 0.05),
+        EvalColumns.SPICE_CARDINALITY: numpy.arange(0, 1, 0.05),
+        EvalColumns.SPICE_COLOR: numpy.arange(0, 1, 0.05)
+    }  # type: Dict[str, numpy.ndarray]
+
+    def __init__(self, out_dir):
+        # type: (str) -> None
+        self.out_dir = out_dir
+        self.histogram_bins = ReportConfig.HISTOGRAM_BINS_DICT
+
+
 class PathForHTML:
     """Keeps track of a regular path, as well as a relative path, which can be
     used to create links in HTML code."""
@@ -64,8 +90,8 @@ class PathForHTML:
                            os.path.join(self.relative, to_append))
 
 
-def create_report(coco_eval, out_dir):
-    # type: (COCOEvalCap, str) -> None
+def create_report(coco_eval, report_config):
+    # type: (COCOEvalCap, ReportConfig) -> None
     """Create a report from the coco_eval object, storing it in out_dir.
 
     The report will consist of a series of HTML pages, images, and maybe
@@ -74,11 +100,13 @@ def create_report(coco_eval, out_dir):
 
     :param coco_eval: An evaluation object from which the report will be
     generated
-    :param out_dir: the path of the output directory that will be created
+    :param report_config: See ReportConfig; includes the path of the output
+    directory that will be created
     :return: None
     """
     # For now, just fail if the directory already exists, so we don't
     # overwrite anything accidentally.
+    out_dir = report_config.out_dir
     os.makedirs(out_dir)
     report_index_path = os.path.join(out_dir, INDEX_HTML)
     with open(report_index_path, 'w') as report_index_file:
@@ -88,7 +116,8 @@ def create_report(coco_eval, out_dir):
         plot_dir_for_html = PathForHTML.from_base_and_relative(
             out_dir, PLOT_DIR_NAME)
         os.makedirs(plot_dir_for_html.regular)
-        _add_histograms(report_index_file, plot_dir_for_html, data_frame)
+        _add_histograms(report_index_file, plot_dir_for_html,
+                        report_config, data_frame)
         _add_unlabeled_images(report_index_file, out_dir)
 
 
@@ -101,33 +130,35 @@ def _add_summary_table(html_file, coco_eval):
     html_file.write(summary_data_frame.to_html() + '\n')
 
 
-def _add_histograms(html_file, plot_dir_for_html, data_frame):
-    # type: (IO, PathForHTML, DataFrame) -> None
+def _add_histograms(html_file, plot_dir_for_html, report_config, data_frame):
+    # type: (IO, PathForHTML, ReportConfig, DataFrame) -> None
     _write_header(html_file, 'Distribution of different measures (except '
                              'SPICE-related, which come later below)')
     for column_name in COLUMNS_FOR_HISTOGRAM_NON_SPICE:
-        _add_histogram(html_file, data_frame, column_name,
-                       plot_dir_for_html)
+        bins = report_config.histogram_bins.get(column_name)
+        _add_histogram(html_file, plot_dir_for_html,
+                       bins, data_frame, column_name)
     _write_header(html_file, 'Distribution of SPICE-related measures')
     for column_name in COLUMNS_FOR_HISTOGRAM_SPICE:
-        _add_histogram(html_file, data_frame, column_name,
-                       plot_dir_for_html)
+        _add_histogram(html_file, plot_dir_for_html,
+                       report_config.histogram_bins.get(column_name),
+                       data_frame, column_name)
 
 
-def _add_histogram(html_file, data_frame, column_name, plot_dir_for_html):
-    # type: (IO, DataFrame, str, PathForHTML) -> None
-    figure = _plot_histogram(data_frame, column_name)
+def _add_histogram(html_file, plot_dir_for_html, bins, data_frame, column_name):
+    # type: (IO, PathForHTML, Optional[numpy.ndarray], DataFrame, str) -> None
+    figure = _plot_histogram(data_frame, bins, column_name)
     image_file_name = column_name + '.jpg'
     image_path_for_html = plot_dir_for_html.join(image_file_name)
     _save_figure(html_file, image_path_for_html, figure)
 
 
-def _plot_histogram(data_frame, column_name):
-    # type: (DataFrame, str) -> Figure
+def _plot_histogram(data_frame, bins, column_name):
+    # type: (DataFrame, Optional[numpy.ndarray], str) -> Figure
     figure = plt.figure()
     # Draw the histogram into the current active axes.
     data_frame.hist(column=column_name, ax=plt.gca(), edgecolor='black',
-                    linewidth=1.2, grid=False)
+                    linewidth=1.2, grid=False, bins=bins)
     count = data_frame[column_name].count()
     plt.title('%s (image count = %d)' % (column_name, count))
     plt.ylabel('Frequency')
