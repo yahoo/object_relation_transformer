@@ -27,12 +27,26 @@ class EvalColumns:
     METEOR = 'METEOR'
     ROUGE_L = 'ROUGE_L'
     SPICE = 'SPICE.All.f'
+    SPICE_PR = 'SPICE.All.pr'
+    SPICE_RE = 'SPICE.All.re'
     SPICE_OBJECT = 'SPICE.Object.f'
+    SPICE_OBJECT_PR = 'SPICE.Object.pr'
+    SPICE_OBJECT_RE = 'SPICE.Object.re'
     SPICE_RELATION = 'SPICE.Relation.f'
+    SPICE_RELATION_PR = 'SPICE.Relation.pr'
+    SPICE_RELATION_RE = 'SPICE.Relation.re'
     SPICE_ATTRIBUTE = 'SPICE.Attribute.f'
+    SPICE_ATTRIBUTE_PR = 'SPICE.Attribute.pr'
+    SPICE_ATTRIBUTE_RE = 'SPICE.Attribute.re'
     SPICE_COLOR = 'SPICE.Color.f'
+    SPICE_COLOR_PR = 'SPICE.Color.pr'
+    SPICE_COLOR_RE = 'SPICE.Color.re'
     SPICE_CARDINALITY = 'SPICE.Cardinality.f'
+    SPICE_CARDINALITY_PR = 'SPICE.Cardinality.pr'
+    SPICE_CARDINALITY_RE = 'SPICE.Cardinality.re'
     SPICE_SIZE = 'SPICE.Size.f'
+    SPICE_SIZE_PR = 'SPICE.Size.pr'
+    SPICE_SIZE_RE = 'SPICE.Size.re'
 
 
 INDEX_COLUMN_NAME = EvalColumns.IMAGE_ID
@@ -40,9 +54,19 @@ COLUMNS_FOR_HISTOGRAM_NON_SPICE = [
     EvalColumns.BLEU1, EvalColumns.BLEU2, EvalColumns.BLEU3, EvalColumns.BLEU4,
     EvalColumns.CIDER, EvalColumns.METEOR, EvalColumns.ROUGE_L]
 COLUMNS_FOR_HISTOGRAM_SPICE = [
-    EvalColumns.SPICE, EvalColumns.SPICE_OBJECT, EvalColumns.SPICE_RELATION,
-    EvalColumns.SPICE_ATTRIBUTE, EvalColumns.SPICE_COLOR,
-    EvalColumns.SPICE_CARDINALITY, EvalColumns.SPICE_SIZE]
+    EvalColumns.SPICE, EvalColumns.SPICE_PR, EvalColumns.SPICE_RE,
+    EvalColumns.SPICE_OBJECT, EvalColumns.SPICE_OBJECT_PR,
+    EvalColumns.SPICE_OBJECT_RE,
+    EvalColumns.SPICE_RELATION, EvalColumns.SPICE_RELATION_PR,
+    EvalColumns.SPICE_RELATION_RE,
+    EvalColumns.SPICE_ATTRIBUTE, EvalColumns.SPICE_ATTRIBUTE_PR,
+    EvalColumns.SPICE_ATTRIBUTE_RE,
+    EvalColumns.SPICE_COLOR, EvalColumns.SPICE_COLOR_PR,
+    EvalColumns.SPICE_COLOR_RE,
+    EvalColumns.SPICE_CARDINALITY, EvalColumns.SPICE_CARDINALITY_PR,
+    EvalColumns.SPICE_CARDINALITY_RE,
+    EvalColumns.SPICE_SIZE, EvalColumns.SPICE_SIZE_PR,
+    EvalColumns.SPICE_SIZE_RE]
 
 
 class ReportConfig:
@@ -56,12 +80,26 @@ class ReportConfig:
         EvalColumns.METEOR: numpy.arange(0, 1, 0.05),
         EvalColumns.ROUGE_L: numpy.arange(0, 1, 0.05),
         EvalColumns.SPICE: numpy.arange(0, 1, 0.05),
+        EvalColumns.SPICE_PR: numpy.arange(0, 1, 0.05),
+        EvalColumns.SPICE_RE: numpy.arange(0, 1, 0.05),
         EvalColumns.SPICE_OBJECT: numpy.arange(0, 1, 0.05),
+        EvalColumns.SPICE_OBJECT_PR: numpy.arange(0, 1, 0.05),
+        EvalColumns.SPICE_OBJECT_RE: numpy.arange(0, 1, 0.05),
         EvalColumns.SPICE_ATTRIBUTE: numpy.arange(0, 1, 0.05),
+        EvalColumns.SPICE_ATTRIBUTE_PR: numpy.arange(0, 1, 0.05),
+        EvalColumns.SPICE_ATTRIBUTE_RE: numpy.arange(0, 1, 0.05),
         EvalColumns.SPICE_RELATION: numpy.arange(0, 1, 0.05),
+        EvalColumns.SPICE_RELATION_PR: numpy.arange(0, 1, 0.05),
+        EvalColumns.SPICE_RELATION_RE: numpy.arange(0, 1, 0.05),
         EvalColumns.SPICE_SIZE: numpy.arange(0, 1, 0.05),
+        EvalColumns.SPICE_SIZE_PR: numpy.arange(0, 1, 0.05),
+        EvalColumns.SPICE_SIZE_RE: numpy.arange(0, 1, 0.05),
         EvalColumns.SPICE_CARDINALITY: numpy.arange(0, 1, 0.05),
-        EvalColumns.SPICE_COLOR: numpy.arange(0, 1, 0.05)
+        EvalColumns.SPICE_CARDINALITY_PR: numpy.arange(0, 1, 0.05),
+        EvalColumns.SPICE_CARDINALITY_RE: numpy.arange(0, 1, 0.05),
+        EvalColumns.SPICE_COLOR: numpy.arange(0, 1, 0.05),
+        EvalColumns.SPICE_COLOR_PR: numpy.arange(0, 1, 0.05),
+        EvalColumns.SPICE_COLOR_RE: numpy.arange(0, 1, 0.05)
     }  # type: Dict[str, numpy.ndarray]
 
     def __init__(self, out_dir):
