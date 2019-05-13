@@ -11,11 +11,8 @@ from typing import IO, Optional, Dict, List
 sys.path.append("coco-caption")
 from pycocoevalcap.eval import COCOEvalCap
 
-INDEX_HTML = 'index.html'
 HTML_IMAGE_WIDTH_PIXELS = 400
 SUMMARY_VALUES_COLUMN_NAME = 'Value'
-PLOT_DIR_NAME = 'plots'
-IMAGE_REPORT_DIR_NAME = 'image_reports'
 RESULT_KEY_CAPTION = 'caption'
 GROUND_TRUTH_KEY_CAPTION = 'caption'
 
@@ -133,6 +130,55 @@ class PathForHTML:
                            os.path.join(self.relative, to_append))
 
 
+class OutputPaths:
+
+    INDEX_HTML = 'index.html'
+    PLOT_DIR_NAME = 'plots'
+    IMAGE_REPORT_DIR_NAME = 'image_reports'
+    IMAGE_DIR_NAME = 'images'
+    IMAGE_EXTENSION = '.jpg'
+
+    def __init__(self, out_dir):
+        # type: (str) -> None
+        # Set directories and then run makedirs to create them.
+        self.out_dir_for_html = PathForHTML(out_dir, '.')
+        self.image_report_dir_for_html = self.out_dir_for_html.join(
+            OutputPaths.IMAGE_REPORT_DIR_NAME)
+        self.image_dir_for_html = self.out_dir_for_html.join(
+            OutputPaths.IMAGE_DIR_NAME)
+        self.plot_dir_for_html = self.out_dir_for_html.join(
+            OutputPaths.PLOT_DIR_NAME)
+        # For now, just fail if the directory already exists, so we don't
+        # overwrite anything accidentally.
+        os.makedirs(self.out_dir_for_html.regular)
+        os.makedirs(self.image_report_dir_for_html.regular)
+        os.makedirs(self.plot_dir_for_html.regular)
+        # Create some specific relevant paths
+        self.report_index_path = os.path.join(self.out_dir_for_html.regular,
+                                              OutputPaths.INDEX_HTML)
+
+    def histogram_image_for_html(self, column_name):
+        # type: (str) -> PathForHTML
+        histogram_file_name = column_name + OutputPaths.IMAGE_EXTENSION
+        return self.plot_dir_for_html.join(histogram_file_name)
+
+    def metric_for_html(self, column_name):
+        # type: (str) -> PathForHTML
+        metric_file_name = column_name + '.html'
+        return self.out_dir_for_html.join(metric_file_name)
+
+
+class MetricData:
+
+    def __init__(self, data_frame, column_name, bins):
+        # type: (DataFrame, str, numpy.ndarray) -> None
+        self.data_frame = data_frame
+        self.column_name = column_name
+        self.bins = bins
+        series = self.data_frame[column_name]
+        self.sorted_series = series.sort_values()  # type: Series
+
+
 def create_report(coco_eval, report_config):
     # type: (COCOEvalCap, ReportConfig) -> None
     """Create a report from the coco_eval object, storing it in out_dir.
@@ -147,23 +193,16 @@ def create_report(coco_eval, report_config):
     directory that will be created
     :return: None
     """
-    # For now, just fail if the directory already exists, so we don't
-    # overwrite anything accidentally.
-    out_dir = report_config.out_dir
-    # output_directories = OutputDirectories(out_dir)
-    os.makedirs(out_dir)
-    out_dir_for_html = PathForHTML(out_dir, '.')
-    image_report_dir_for_html = out_dir_for_html.join(IMAGE_REPORT_DIR_NAME)
-    os.makedirs(image_report_dir_for_html.regular)
-    report_index_path = os.path.join(out_dir, INDEX_HTML)
+    output_paths = OutputPaths(report_config.out_dir)
     data_frame = _create_main_data_frame(coco_eval)
-    _create_image_reports(image_report_dir_for_html, data_frame)
-    with open(report_index_path, 'w') as report_index_file:
-        _add_summary_table(report_index_file, coco_eval)
-        _add_metric_pages(report_index_file, out_dir_for_html,
-                          image_report_dir_for_html, report_config,
+    _create_image_reports(output_paths.image_report_dir_for_html,
                           data_frame)
-        _add_unlabeled_images(report_index_file, out_dir)
+    with open(output_paths.report_index_path, 'w') as report_index_file:
+        _add_summary_table(report_index_file, coco_eval)
+        _add_metric_pages(report_index_file, output_paths, report_config,
+                          data_frame)
+        _add_unlabeled_images(report_index_file,
+                              output_paths.image_dir_for_html)
 
 
 def _create_main_data_frame(coco_eval):
@@ -219,54 +258,47 @@ def _add_summary_table(html_file, coco_eval):
     html_file.write(summary_data_frame.to_html() + '\n')
 
 
-def _add_metric_pages(html_file, out_dir_for_html, image_report_dir_for_html,
-                      report_config, data_frame):
-    # type: (IO, PathForHTML, PathForHTML, ReportConfig, DataFrame) -> None
-    plot_dir_for_html = out_dir_for_html.join(PLOT_DIR_NAME)
-    os.makedirs(plot_dir_for_html.regular)
+def _add_metric_pages(html_file, output_paths, report_config, data_frame):
+    # type: (IO, OutputPaths, ReportConfig, DataFrame) -> None
     _write_header(html_file, 'Distribution of different measures (except '
                              'SPICE-related, which come later below)')
     for column_name in COLUMNS_FOR_HISTOGRAM_NON_SPICE:
         bins = report_config.histogram_bins[column_name]
-        # metric_info = MetricInfo(data_frame, column_name, bins)
-        _add_metric_page(html_file, out_dir_for_html, plot_dir_for_html,
-                         image_report_dir_for_html, bins, data_frame,
-                         column_name)
+        metric_data = MetricData(data_frame, column_name, bins)
+        _add_metric_page(html_file, output_paths, metric_data)
     _write_header(html_file, 'Distribution of SPICE-related measures')
     for column_name in COLUMNS_FOR_HISTOGRAM_SPICE:
         bins = report_config.histogram_bins[column_name]
-        _add_metric_page(html_file, out_dir_for_html, plot_dir_for_html,
-                         image_report_dir_for_html, bins, data_frame,
-                         column_name)
+        metric_data = MetricData(data_frame, column_name, bins)
+        _add_metric_page(html_file, output_paths, metric_data)
 
 
-def _add_metric_page(html_file, out_dir_for_html, plot_dir_for_html,
-                     image_report_dir_for_html, bins, data_frame, column_name):
-    # type: (IO, PathForHTML, PathForHTML, PathForHTML, numpy.ndarray, DataFrame, str) -> None
-    figure = _plot_histogram(data_frame, bins, column_name)
-    image_file_name = column_name + '.jpg'
-    image_path_for_html = plot_dir_for_html.join(image_file_name)
+def _add_metric_page(html_file, output_paths, metric_data):
+    # type: (IO, OutputPaths, MetricData) -> None
+    figure = _plot_histogram(metric_data.data_frame, metric_data.bins,
+                             metric_data.column_name)
+    image_path_for_html = output_paths.histogram_image_for_html(
+        metric_data.column_name)
     figure.savefig(image_path_for_html.regular)
+    # Close the figure so that matplotlib doesn't complain about memory.
     plt.close(figure)
-    metric_file_name = column_name + '.html'
-    metric_path_for_html = out_dir_for_html.join(metric_file_name)
+    metric_path_for_html = output_paths.metric_for_html(metric_data.column_name)
     _save_figure(html_file, image_path_for_html.relative,
                  metric_path_for_html.relative)
+    image_report_dir_for_html = output_paths.image_report_dir_for_html
     _create_metric_html(metric_path_for_html, image_path_for_html,
-                        image_report_dir_for_html, data_frame[column_name],
-                        bins)
+                        image_report_dir_for_html, metric_data)
 
 
 def _create_metric_html(metric_path_for_html, image_path_for_html,
-                        image_report_dir_for_html, series, bins):
-    # type: (PathForHTML, PathForHTML, PathForHTML, Series, numpy.ndarray) -> None
+                        image_report_dir_for_html, metric_data):
+    # type: (PathForHTML, PathForHTML, PathForHTML, MetricData) -> None
     with open(metric_path_for_html.regular, 'w') as metric_file:
         _save_figure(metric_file, image_path_for_html.relative,
                      image_path_for_html.relative)
-        sorted_series = series.sort_values()
-        _print_metric_stats(metric_file, sorted_series)
+        _print_metric_stats(metric_file, metric_data.sorted_series)
         _write_sorted_images(metric_file, image_report_dir_for_html,
-                             sorted_series, bins)
+                             metric_data.sorted_series, metric_data.bins)
         _write_many_line_breaks(metric_file)
 
 
@@ -350,8 +382,8 @@ def _save_figure(html_file, image_src, link):
         link, image_src, HTML_IMAGE_WIDTH_PIXELS))
 
 
-def _add_unlabeled_images(html_file, out_dir):
-    # type: (IO, str) -> None
+def _add_unlabeled_images(html_file, image_dir_for_html):
+    # type: (IO, PathForHTML) -> None
     _write_header(html_file, 'Unlabeled images')
     html_file.write('to be added at some point?')
     # TODO: implement this to allow us to view unlabeled images (no ground
