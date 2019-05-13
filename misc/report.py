@@ -8,6 +8,7 @@ from matplotlib.figure import Figure
 from pandas import DataFrame, Series
 from pandas.io.json import json_normalize
 from typing import IO, Optional, Dict, List
+from six.moves import cPickle as pickle
 sys.path.append("coco-caption")
 from pycocoevalcap.eval import COCOEvalCap
 
@@ -15,10 +16,13 @@ HTML_IMAGE_WIDTH_PIXELS = 400
 SUMMARY_VALUES_COLUMN_NAME = 'Value'
 RESULT_KEY_CAPTION = 'caption'
 GROUND_TRUTH_KEY_CAPTION = 'caption'
+PREDICTION_KEY_IMAGE_ID = 'image_id'
+PREDICTION_KEY_FILE_PATH = 'file_path'
 
 
 class EvalColumns:
     IMAGE_ID = 'image_id'
+    PATH = 'path'
     RESULT_CAPTION = 'resultCaption'
     GROUND_TRUTH_CAPTIONS = 'groundTruthCaptions'
     BLEU1 = 'Bleu_1'
@@ -110,6 +114,30 @@ class ReportConfig:
         self.histogram_bins = ReportConfig.HISTOGRAM_BINS_DICT
 
 
+class ReportData:
+
+    def __init__(self, coco_eval, predictions, image_root, model_id, split):
+        # type (COCOEvalCap, List[Dict[str, Any]], str, str, str) -> None
+        self.coco_eval = coco_eval
+        self.predictions = predictions
+        self.image_root = image_root
+        self.model_id = model_id
+        self.split = split
+
+    def save_to_pickle(self, pickle_path):
+        # type: (str) -> None
+        """Save ReportData into a pickle file so that we can create
+        visualizations for it later."""
+        with open(pickle_path, 'wb') as pickle_file:
+            pickle.dump(self, pickle_file)
+
+    @staticmethod
+    def read_from_pickle(pickle_path):
+        # type: (str) -> ReportData
+        with open(pickle_path, 'rb') as pickle_file:
+            return pickle.load(pickle_file)
+
+
 class PathForHTML:
     """Keeps track of a regular path, as well as a relative path, which can be
     used to create links in HTML code."""
@@ -179,8 +207,8 @@ class MetricData:
         self.sorted_series = series.sort_values()  # type: Series
 
 
-def create_report(coco_eval, report_config):
-    # type: (COCOEvalCap, ReportConfig) -> None
+def create_report(report_data, report_config):
+    # type: (ReportData, ReportConfig) -> None
     """Create a report from the coco_eval object, storing it in out_dir.
 
     The report will consist of a series of HTML pages, images, and maybe
@@ -194,19 +222,20 @@ def create_report(coco_eval, report_config):
     :return: None
     """
     output_paths = OutputPaths(report_config.out_dir)
-    data_frame = _create_main_data_frame(coco_eval)
+    data_frame = _create_main_data_frame(report_data)
     _create_image_reports(output_paths.image_report_dir_for_html,
                           data_frame)
     with open(output_paths.report_index_path, 'w') as report_index_file:
-        _add_summary_table(report_index_file, coco_eval)
+        _add_summary_table(report_index_file, report_data.coco_eval)
         _add_metric_pages(report_index_file, output_paths, report_config,
                           data_frame)
         _add_unlabeled_images(report_index_file,
                               output_paths.image_dir_for_html)
 
 
-def _create_main_data_frame(coco_eval):
-    # type: (COCOEvalCap) -> DataFrame
+def _create_main_data_frame(report_data):
+    # type: (ReportData) -> DataFrame
+    coco_eval = report_data.coco_eval
     data_frame = json_normalize(coco_eval.imgToEval.values())
     result = {image_id: annotation[0][RESULT_KEY_CAPTION] for
               (image_id, annotation) in coco_eval.cocoRes.imgToAnns.items()}
@@ -217,6 +246,11 @@ def _create_main_data_frame(coco_eval):
         EvalColumns.IMAGE_ID].map(result)
     data_frame[EvalColumns.GROUND_TRUTH_CAPTIONS] = data_frame[
         EvalColumns.IMAGE_ID].map(ground_truth)
+    image_paths = {prediction[PREDICTION_KEY_IMAGE_ID]: os.path.join(
+        report_data.image_root, prediction[PREDICTION_KEY_FILE_PATH])
+        for prediction in report_data.predictions}
+    data_frame[EvalColumns.PATH] = data_frame[EvalColumns.IMAGE_ID].map(
+        image_paths)
     data_frame.set_index(INDEX_COLUMN_NAME, inplace=True)
     return data_frame
 

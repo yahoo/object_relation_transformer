@@ -8,8 +8,7 @@
 # cd reports/
 # python -m SimpleHTTPServer 8888
 import argparse
-from six.moves import cPickle as pickle
-from misc.report import create_report, ReportConfig
+from misc.report import create_report, ReportConfig, ReportData
 from datetime import datetime
 
 
@@ -26,8 +25,8 @@ def main():
     add_time = args[Args.ADD_TIME]
     out_dir = _get_out_dir(base_out_dir, add_time)
     pickle_path = args[Args.COCO_EVAL_PICKLE]
-    coco_eval = _read_pickle(pickle_path)
-    create_report(coco_eval, ReportConfig(out_dir))
+    report_data = ReportData.read_from_pickle(pickle_path)
+    create_report(report_data, ReportConfig(out_dir))
 
 
 def _get_command_line_arguments():
@@ -55,12 +54,6 @@ def _get_out_dir(base_out_dir, add_time):
     else:
         out_dir = base_out_dir
     return out_dir
-
-
-def _read_pickle(pickle_path):
-    with open(pickle_path, 'rb') as pickle_file:
-        coco_eval = pickle.load(pickle_file)
-    return coco_eval
 
 
 if __name__ == '__main__':
