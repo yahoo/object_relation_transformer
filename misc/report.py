@@ -1,6 +1,7 @@
 import numpy
 import os
 import sys
+import shutil
 import matplotlib.pyplot as plt
 # By using Agg, pyplot will not try to open a display
 plt.switch_backend('Agg')
@@ -13,6 +14,7 @@ sys.path.append("coco-caption")
 from pycocoevalcap.eval import COCOEvalCap
 
 HTML_IMAGE_WIDTH_PIXELS = 400
+HTML_IMAGE_ALIGN_LEFT = 'left'
 SUMMARY_VALUES_COLUMN_NAME = 'Value'
 RESULT_KEY_CAPTION = 'caption'
 GROUND_TRUTH_KEY_CAPTION = 'caption'
@@ -61,6 +63,20 @@ COLUMNS_FOR_HISTOGRAM_NON_SPICE = [
     EvalColumns.CIDER, EvalColumns.METEOR, EvalColumns.ROUGE_L]
 COLUMNS_FOR_HISTOGRAM_SPICE = [
     EvalColumns.SPICE, EvalColumns.SPICE_PR, EvalColumns.SPICE_RE,
+    EvalColumns.SPICE_OBJECT, EvalColumns.SPICE_OBJECT_PR,
+    EvalColumns.SPICE_OBJECT_RE,
+    EvalColumns.SPICE_RELATION, EvalColumns.SPICE_RELATION_PR,
+    EvalColumns.SPICE_RELATION_RE,
+    EvalColumns.SPICE_ATTRIBUTE, EvalColumns.SPICE_ATTRIBUTE_PR,
+    EvalColumns.SPICE_ATTRIBUTE_RE,
+    EvalColumns.SPICE_COLOR, EvalColumns.SPICE_COLOR_PR,
+    EvalColumns.SPICE_COLOR_RE,
+    EvalColumns.SPICE_CARDINALITY, EvalColumns.SPICE_CARDINALITY_PR,
+    EvalColumns.SPICE_CARDINALITY_RE,
+    EvalColumns.SPICE_SIZE, EvalColumns.SPICE_SIZE_PR,
+    EvalColumns.SPICE_SIZE_RE]
+EXTRA_SUMMARY_COLUMNS = [
+    EvalColumns.SPICE_PR, EvalColumns.SPICE_RE,
     EvalColumns.SPICE_OBJECT, EvalColumns.SPICE_OBJECT_PR,
     EvalColumns.SPICE_OBJECT_RE,
     EvalColumns.SPICE_RELATION, EvalColumns.SPICE_RELATION_PR,
@@ -180,6 +196,7 @@ class OutputPaths:
         # overwrite anything accidentally.
         os.makedirs(self.out_dir_for_html.regular)
         os.makedirs(self.image_report_dir_for_html.regular)
+        os.makedirs(self.image_dir_for_html.regular)
         os.makedirs(self.plot_dir_for_html.regular)
         # Create some specific relevant paths
         self.report_index_path = os.path.join(self.out_dir_for_html.regular,
@@ -223,10 +240,9 @@ def create_report(report_data, report_config):
     """
     output_paths = OutputPaths(report_config.out_dir)
     data_frame = _create_main_data_frame(report_data)
-    _create_image_reports(output_paths.image_report_dir_for_html,
-                          data_frame)
+    _create_image_reports(output_paths, data_frame)
     with open(output_paths.report_index_path, 'w') as report_index_file:
-        _add_summary_table(report_index_file, report_data.coco_eval)
+        _add_summary_table(report_index_file, data_frame, report_data.coco_eval)
         _add_metric_pages(report_index_file, output_paths, report_config,
                           data_frame)
         _add_unlabeled_images(report_index_file,
@@ -260,18 +276,20 @@ def _ground_truth_captions(annotations):
     return [annotation[GROUND_TRUTH_KEY_CAPTION] for annotation in annotations]
 
 
-def _create_image_reports(image_report_dir_for_html, data_frame):
-    # type: (PathForHTML, DataFrame) -> None
+def _create_image_reports(output_paths, data_frame):
+    # type: (OutputPaths, DataFrame) -> None
     for image_id in data_frame.index:
         image_series = data_frame.loc[image_id]
-        _create_image_report(image_report_dir_for_html, image_series)
+        _create_image_report(output_paths, image_series)
 
 
-def _create_image_report(image_report_dir_for_html, image_series):
-    # type: (PathForHTML, Series) -> None
-    image_report_path = _image_report_path(
-        image_report_dir_for_html, str(image_series.name))
-    with open(image_report_path.regular, 'w') as image_report_file:
+def _create_image_report(output_paths, image_series):
+    # type: (OutputPaths, Series) -> None
+    image_report_path_for_html = _image_report_path(
+        output_paths.image_report_dir_for_html, str(image_series.name))
+    with open(image_report_path_for_html.regular, 'w') as image_report_file:
+        _copy_and_write_image(
+            image_report_file, output_paths.image_dir_for_html, image_series)
         _write_header(image_report_file, 'Generated caption')
         image_report_file.write(image_series[EvalColumns.RESULT_CAPTION])
         _write_header(image_report_file, 'Ground truth captions')
@@ -283,12 +301,27 @@ def _create_image_report(image_report_dir_for_html, image_series):
             image_series.to_frame().to_html(float_format=lambda x: '%.6f' % x))
 
 
-def _add_summary_table(html_file, coco_eval):
-    # type: (IO, COCOEvalCap) -> None
+def _copy_and_write_image(image_report_file, image_dir_for_html, image_series):
+    # type: (IO, PathForHTML, Series) -> None
+    image_id = image_series.name
+    original_path = image_series[EvalColumns.PATH]
+    image_extension = os.path.splitext(original_path)[1]
+    image_file_name = str(image_id) + image_extension
+    image_path_for_html = image_dir_for_html.join(image_file_name)
+    shutil.copyfile(original_path, image_path_for_html.regular)
+    # TODO: fix the ../ hack below.
+    image_relative_path = os.path.join('..', image_path_for_html.relative)
+    _write_html_image(image_report_file, image_relative_path,
+                      image_relative_path, align=HTML_IMAGE_ALIGN_LEFT)
+
+
+def _add_summary_table(html_file, data_frame, coco_eval):
+    # type: (IO, DataFrame, COCOEvalCap) -> None
     """Write overall measures, from COCOEvalCap.eval."""
     _write_header(html_file, 'Measures over all images')
-    summary_data_frame = Series(coco_eval.eval).to_frame(
-        SUMMARY_VALUES_COLUMN_NAME)
+    extra_means = data_frame[EXTRA_SUMMARY_COLUMNS].mean()
+    summary_data_frame = Series(coco_eval.eval).append(extra_means).to_frame(
+        SUMMARY_VALUES_COLUMN_NAME)  # type: DataFrame
     html_file.write(summary_data_frame.to_html() + '\n')
 
 
@@ -317,8 +350,8 @@ def _add_metric_page(html_file, output_paths, metric_data):
     # Close the figure so that matplotlib doesn't complain about memory.
     plt.close(figure)
     metric_path_for_html = output_paths.metric_for_html(metric_data.column_name)
-    _save_figure(html_file, image_path_for_html.relative,
-                 metric_path_for_html.relative)
+    _write_html_image(html_file, image_path_for_html.relative,
+                      metric_path_for_html.relative)
     image_report_dir_for_html = output_paths.image_report_dir_for_html
     _create_metric_html(metric_path_for_html, image_path_for_html,
                         image_report_dir_for_html, metric_data)
@@ -328,9 +361,11 @@ def _create_metric_html(metric_path_for_html, image_path_for_html,
                         image_report_dir_for_html, metric_data):
     # type: (PathForHTML, PathForHTML, PathForHTML, MetricData) -> None
     with open(metric_path_for_html.regular, 'w') as metric_file:
-        _save_figure(metric_file, image_path_for_html.relative,
-                     image_path_for_html.relative)
+        _write_html_image(
+            metric_file, image_path_for_html.relative,
+            image_path_for_html.relative, align=HTML_IMAGE_ALIGN_LEFT)
         _print_metric_stats(metric_file, metric_data.sorted_series)
+        metric_file.write('\n<br>')
         _write_sorted_images(metric_file, image_report_dir_for_html,
                              metric_data.sorted_series, metric_data.bins)
         _write_many_line_breaks(metric_file)
@@ -410,10 +445,14 @@ def _plot_histogram(data_frame, bins, column_name):
     return figure
 
 
-def _save_figure(html_file, image_src, link):
-    # type: (IO, str, str) -> None
-    html_file.write("<a href='%s'><img src='%s' width='%d'></a>\n" % (
-        link, image_src, HTML_IMAGE_WIDTH_PIXELS))
+def _write_html_image(html_file, image_src, link, align=None):
+    # type: (IO, str, str, Optional[str]) -> None
+    if align:
+        align_string = "align='%s'" % align
+    else:
+        align_string = ''
+    html_file.write("<a href='%s'><img src='%s' width='%d' %s></a>\n" % (
+        link, image_src, HTML_IMAGE_WIDTH_PIXELS, align_string))
 
 
 def _add_unlabeled_images(html_file, image_dir_for_html):
