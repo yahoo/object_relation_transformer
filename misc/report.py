@@ -242,7 +242,7 @@ def create_report(report_data, report_config):
     data_frame = _create_main_data_frame(report_data)
     _create_image_reports(output_paths, data_frame)
     with open(output_paths.report_index_path, 'w') as report_index_file:
-        _add_summary_table(report_index_file, data_frame, report_data.coco_eval)
+        _add_summary_table(report_index_file, data_frame, report_data)
         _add_metric_pages(report_index_file, output_paths, report_config,
                           data_frame)
         _add_unlabeled_images(report_index_file,
@@ -315,13 +315,14 @@ def _copy_and_write_image(image_report_file, image_dir_for_html, image_series):
                       image_relative_path, align=HTML_IMAGE_ALIGN_LEFT)
 
 
-def _add_summary_table(html_file, data_frame, coco_eval):
-    # type: (IO, DataFrame, COCOEvalCap) -> None
+def _add_summary_table(html_file, data_frame, report_data):
+    # type: (IO, DataFrame, ReportData) -> None
     """Write overall measures, from COCOEvalCap.eval."""
     _write_header(html_file, 'Measures over all images')
     extra_means = data_frame[EXTRA_SUMMARY_COLUMNS].mean()
-    summary_data_frame = Series(coco_eval.eval).append(extra_means).to_frame(
-        SUMMARY_VALUES_COLUMN_NAME)  # type: DataFrame
+    description = '%s_%s' % (report_data.model_id, report_data.split)
+    summary_data_frame = Series(report_data.coco_eval.eval).append(
+        extra_means).to_frame(description)  # type: DataFrame
     html_file.write(summary_data_frame.to_html() + '\n')
 
 
