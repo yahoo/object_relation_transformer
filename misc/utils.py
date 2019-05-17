@@ -222,7 +222,7 @@ def get_std_opt(model, factor=1, warmup=2000):
     return NoamOpt(model.model.tgt_embed[0].d_model, factor, warmup,
             torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
 
-def BoxRelationalEmbedding(f_g, dim_g=64, wave_len=1000):
+def BoxRelationalEmbedding(f_g, dim_g=64, wave_len=1000, trignometric_embedding= True):
     """
     Given a tensor with bbox coordinates for detected objects on each batch image,
     this function computes a matrix for each image
@@ -264,19 +264,23 @@ def BoxRelationalEmbedding(f_g, dim_g=64, wave_len=1000):
     delta_h = delta_h.view(batch_size, matrix_size[1], matrix_size[2], 1)
 
     position_mat = torch.cat((delta_x, delta_y, delta_w, delta_h), -1)
-    feat_range = torch.arange(dim_g / 8).cuda()
-    dim_mat = feat_range / (dim_g / 8)
-    dim_mat = 1. / (torch.pow(wave_len, dim_mat))
 
-    dim_mat = dim_mat.view(1, 1, 1, -1)
-    position_mat = position_mat.view(batch_size, matrix_size[1], matrix_size[2], 4, -1)
-    position_mat = 100. * position_mat
+    if trignometric_embedding == True:
+        feat_range = torch.arange(dim_g / 8).cuda()
+        dim_mat = feat_range / (dim_g / 8)
+        dim_mat = 1. / (torch.pow(wave_len, dim_mat))
 
-    mul_mat = position_mat * dim_mat
-    mul_mat = mul_mat.view(batch_size, matrix_size[1], matrix_size[2], -1)
-    sin_mat = torch.sin(mul_mat)
-    cos_mat = torch.cos(mul_mat)
-    embedding = torch.cat((sin_mat, cos_mat), -1)
+        dim_mat = dim_mat.view(1, 1, 1, -1)
+        position_mat = position_mat.view(batch_size, matrix_size[1], matrix_size[2], 4, -1)
+        position_mat = 100. * position_mat
+
+        mul_mat = position_mat * dim_mat
+        mul_mat = mul_mat.view(batch_size, matrix_size[1], matrix_size[2], -1)
+        sin_mat = torch.sin(mul_mat)
+        cos_mat = torch.cos(mul_mat)
+        embedding = torch.cat((sin_mat, cos_mat), -1)
+    else:
+        embedding = position_mat
     return(embedding)
 
 
