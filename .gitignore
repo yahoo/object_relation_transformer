@@ -1,0 +1,17 @@
+*.pyc
+
+# Ignore emacs backup files
+*~
+
+# Ignore extra (generated) files in vis folder.
+vis/vis.json
+vis/imgs/*.jpg
+
+# Generated results
+eval_results
+
+# Extra code from a different repo
+coco-caption
+
+# Pycharm settings
+.idea
