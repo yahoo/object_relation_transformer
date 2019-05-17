@@ -401,7 +401,7 @@ class RelationTransformerModel(CaptionModel):
                                     nn.Dropout(self.drop_prob_lm))+
                                     ((nn.BatchNorm1d(self.input_encoding_size),) if self.use_bn==2 else ())))
 
-       self.box_trignometric_embedding = opt.box_trignometric_embedding
+        self.box_trignometric_embedding = opt.box_trignometric_embedding
 
         tgt_vocab = self.vocab_size + 1
         self.model = self.make_model(0, tgt_vocab,
