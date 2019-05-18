@@ -16,14 +16,14 @@ class LSTMCore(nn.Module):
         self.input_encoding_size = opt.input_encoding_size
         self.rnn_size = opt.rnn_size
         self.drop_prob_lm = opt.drop_prob_lm
-        
+
         # Build a LSTM
         self.i2h = nn.Linear(self.input_encoding_size, 5 * self.rnn_size)
         self.h2h = nn.Linear(self.rnn_size, 5 * self.rnn_size)
         self.dropout = nn.Dropout(self.drop_prob_lm)
 
     def forward(self, xt, state):
-        
+
         all_input_sums = self.i2h(xt) + self.h2h(state[0][-1])
         sigmoid_chunk = all_input_sums.narrow(1, 0, 3 * self.rnn_size)
         sigmoid_chunk = F.sigmoid(sigmoid_chunk)
