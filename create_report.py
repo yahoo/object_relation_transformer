@@ -14,7 +14,7 @@ from datetime import datetime
 
 class Args:
     BASE_OUT_DIR = 'out_dir'
-    COCO_EVAL_PICKLE = 'pickle'
+    REPORT_DATA_PICKLE = 'pickle'
     ADD_TIME = 'add_time'
     NO_ADD_TIME = 'no_add_time'
 
@@ -24,7 +24,7 @@ def main():
     base_out_dir = args[Args.BASE_OUT_DIR]
     add_time = args[Args.ADD_TIME]
     out_dir = _get_out_dir(base_out_dir, add_time)
-    pickle_path = args[Args.COCO_EVAL_PICKLE]
+    pickle_path = args[Args.REPORT_DATA_PICKLE]
     report_data = ReportData.read_from_pickle(pickle_path)
     create_report(report_data, ReportConfig(out_dir))
 
@@ -32,7 +32,7 @@ def main():
 def _get_command_line_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--' + Args.COCO_EVAL_PICKLE,
+        '--' + Args.REPORT_DATA_PICKLE,
         help='Pickle file with the COCOEvalCap object', required=True)
     parser.add_argument(
         '--' + Args.BASE_OUT_DIR, help='Output directory', required=True)
