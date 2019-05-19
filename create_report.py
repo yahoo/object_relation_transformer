@@ -14,7 +14,8 @@ from datetime import datetime
 
 class Args:
     BASE_OUT_DIR = 'out_dir'
-    REPORT_DATA_PICKLE = 'pickle'
+    REPORT_DATA_PICKLES = 'pickles'
+    RUN_NAMES = 'run_names'
     ADD_TIME = 'add_time'
     NO_ADD_TIME = 'no_add_time'
 
@@ -24,16 +25,23 @@ def main():
     base_out_dir = args[Args.BASE_OUT_DIR]
     add_time = args[Args.ADD_TIME]
     out_dir = _get_out_dir(base_out_dir, add_time)
-    pickle_path = args[Args.REPORT_DATA_PICKLE]
-    report_data = ReportData.read_from_pickle(pickle_path)
-    create_report(report_data, ReportConfig(out_dir))
+    pickle_paths = args[Args.REPORT_DATA_PICKLES]
+    run_names = args[Args.RUN_NAMES]
+    report_data_list = [
+        ReportData.read_from_pickle(pickle_path, run_name) for
+        pickle_path, run_name in zip(pickle_paths, run_names)]
+    create_report(report_data_list, ReportConfig(out_dir))
 
 
 def _get_command_line_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--' + Args.REPORT_DATA_PICKLE,
-        help='Pickle file with the COCOEvalCap object', required=True)
+        '--' + Args.REPORT_DATA_PICKLES,
+        help='Pickle files with the ReportData objects', required=True,
+        nargs='+')
+    parser.add_argument(
+        '--' + Args.RUN_NAMES, help='A name for each run', required=True,
+        nargs='+')
     parser.add_argument(
         '--' + Args.BASE_OUT_DIR, help='Output directory', required=True)
     parser.add_argument(
