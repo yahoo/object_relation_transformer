@@ -9,6 +9,7 @@ from matplotlib.figure import Figure
 from pandas import DataFrame, Series, concat
 from pandas.io.json import json_normalize
 from typing import IO, Optional, Dict, List
+from scipy.stats import ttest_rel
 from six.moves import cPickle as pickle
 sys.path.append("coco-caption")
 
@@ -19,6 +20,10 @@ RESULT_KEY_CAPTION = 'caption'
 GROUND_TRUTH_KEY_CAPTION = 'caption'
 PREDICTION_KEY_IMAGE_ID = 'image_id'
 PREDICTION_KEY_FILE_PATH = 'file_path'
+# In COCOEvalCAP.eval, the SPICE metric has a different name than in
+# COCOEvalCAP.imgToEval, so we record it here so we can map it to the same
+# value later.
+COCO_EVAL_SPICE_COLUMN = 'SPICE'
 
 
 class EvalColumns:
@@ -88,6 +93,11 @@ EXTRA_SUMMARY_COLUMNS = [
     EvalColumns.SPICE_CARDINALITY_RE,
     EvalColumns.SPICE_SIZE, EvalColumns.SPICE_SIZE_PR,
     EvalColumns.SPICE_SIZE_RE]
+BASE_SUMMARY_COLUMNS = [
+    EvalColumns.BLEU1, EvalColumns.BLEU2, EvalColumns.BLEU3, EvalColumns.BLEU4,
+    EvalColumns.CIDER, EvalColumns.METEOR, EvalColumns.ROUGE_L,
+    EvalColumns.SPICE]
+ALL_SUMMARY_COLUMNS = BASE_SUMMARY_COLUMNS + EXTRA_SUMMARY_COLUMNS
 
 
 class ReportConfig:
@@ -218,7 +228,7 @@ class RunOutputPaths:
                                      RunOutputPaths.PLOT_DIR_NAME)
         os.makedirs(self.run_dir)
         os.makedirs(self.plot_dir)
-        self.run_index_path = os.path.join(self.run_dir, OutputPaths.INDEX_HTML)
+        self.index_path = os.path.join(self.run_dir, OutputPaths.INDEX_HTML)
 
     def histogram_image_path(self, column_name):
         # type: (str) -> str
@@ -260,6 +270,9 @@ def create_report(report_data_list, report_config):
     data_frame = _create_main_data_frame(report_data_list)
     _create_image_reports(output_paths, data_frame)
     with open(output_paths.report_index_path, 'w') as report_index_file:
+        _add_all_run_pairs_metric_pages(
+            report_index_file, output_paths, report_config, data_frame,
+            report_data_list)
         _add_all_runs_table(report_index_file, data_frame, report_data_list)
         #_add_all_runs__metric_pages(report_index_file, output_paths,
         #                            report_config, data_frame)
@@ -269,10 +282,30 @@ def create_report(report_data_list, report_config):
         _add_unlabeled_images(report_index_file, output_paths.image_dir)
 
 
+def _add_all_run_pairs_metric_pages(
+        report_index_file, output_paths, report_config, data_frame,
+        report_data_list):
+    # type: (IO, OutputPaths, ReportConfig, DataFrame, List[ReportData]) -> None
+    _write_header(report_index_file, 'Reports comparing pairs of runs')
+    run_names = data_frame.columns.levels[0]
+    if len(run_names) < 2:
+        return
+    # Only handle comparison of the first two methods for now.
+    all_pair_indexes = [[0, 1]]
+    for pair_indexes in all_pair_indexes:
+        pair_names = run_names[pair_indexes]
+        pair_name = '_VS_'.join(pair_names)
+        pair_output_paths = RunOutputPaths(output_paths, pair_name)
+        pair_report_data_list = [report_data_list[i] for i in pair_indexes]
+        _add_run_pair_metric_page(
+            report_index_file, pair_output_paths, report_config,
+            pair_name, data_frame[pair_names], pair_report_data_list)
+
+
 def _add_single_run_metric_pages(report_index_file, output_paths, report_config,
                                  data_frame, report_data_list):
     # type: (IO, OutputPaths, ReportConfig, DataFrame, List[ReportData]) -> None
-    _write_header(report_index_file, 'Reports per run/model')
+    _write_header(report_index_file, 'Reports per run')
     run_names = data_frame.columns.levels[0]
     for run_name, report_data in zip(run_names, report_data_list):
         run_output_paths = RunOutputPaths(output_paths, run_name)
@@ -281,11 +314,64 @@ def _add_single_run_metric_pages(report_index_file, output_paths, report_config,
             data_frame[run_name], report_data)
 
 
+def _add_run_pair_metric_page(
+        report_index_file, pair_output_paths, report_config, pair_name,
+        pair_data_frame, pair_report_data_list):
+    # type: (IO, RunOutputPaths, ReportConfig, str, DataFrame, List[ReportData]) -> None
+    pair_index_path = pair_output_paths.index_path
+    out_dir = pair_output_paths.output_paths.out_dir
+    report_index_file.write('<a href="%s">%s</a><br>\n' % (
+        os.path.relpath(pair_index_path, out_dir), pair_name))
+    with open(pair_index_path, 'w') as pair_index_file:
+        _write_header(pair_index_file, pair_name)
+        _add_run_pair_table(pair_index_file, pair_name, pair_data_frame,
+                            pair_report_data_list)
+        #_add_run_pair_metric_pages(pair_index_file, run_output_paths,
+        #                           report_config, single_run_data_frame)
+
+
+def _add_run_pair_table(html_file, pair_name, pair_data_frame,
+                        pair_report_data_list):
+    # type: (IO, str, DataFrame, List[ReportData]) -> None
+    """Write overall measures, from COCOEvalCap.eval."""
+    _write_header(html_file, 'Measures over all images')
+    run_pair_summary = _create_run_pair_summary(
+        pair_report_data_list, pair_name, pair_data_frame)
+    html_file.write(run_pair_summary.to_html() + '\n')
+
+
+def _create_run_pair_summary(pair_report_data_list, pair_name,
+                             pair_data_frame):
+    # type(List[ReportData], str, DataFrame) -> DataFrame
+    run_names = pair_data_frame.columns.levels[0]
+    run_summaries = [
+        _create_single_run_summary(
+            report_data, run_name, pair_data_frame[run_name])
+        for (run_name, report_data) in zip(run_names, pair_report_data_list)]
+    mean_summaries = [
+        pair_data_frame[run_name][ALL_SUMMARY_COLUMNS].mean().to_frame(
+            run_name + '.means') for run_name in run_names]
+    t_test_results = {column: ttest_rel(
+        pair_data_frame[run_names[0]][column],
+        pair_data_frame[run_names[1]][column])
+        for column in ALL_SUMMARY_COLUMNS}
+    t_statistics = {
+        column: statistic_and_p_value[0] for column, statistic_and_p_value in
+        t_test_results.items()}
+    p_values = {
+        column: statistic_and_p_value[1] for column, statistic_and_p_value in
+        t_test_results.items()}
+    t_statistic_data_frame = Series(t_statistics).to_frame('t-test statistic')
+    p_value_data_frame = Series(p_values).to_frame('p-value')
+    return concat(run_summaries + mean_summaries + [
+        t_statistic_data_frame, p_value_data_frame], axis=1)
+
+
 def _add_single_run_metric_page(
         report_index_file, run_output_paths, report_config, run_name,
         single_run_data_frame, report_data):
     # type: (IO, RunOutputPaths, ReportConfig, str, DataFrame, ReportData) -> None
-    run_index_path = run_output_paths.run_index_path
+    run_index_path = run_output_paths.index_path
     out_dir = run_output_paths.output_paths.out_dir
     report_index_file.write('<a href="%s">%s</a><br>\n' % (
         os.path.relpath(run_index_path, out_dir), run_name))
@@ -404,10 +490,11 @@ def _add_all_runs_table(html_file, data_frame, report_data_list):
 
 
 def _create_single_run_summary(report_data, run_name, single_run_data_frame):
-    # type(Report_data, str, DataFrame) -> DataFrame
+    # type(ReportData, str, DataFrame) -> DataFrame
     extra_means = single_run_data_frame[EXTRA_SUMMARY_COLUMNS].mean()
-    return Series(report_data.coco_eval.eval).append(extra_means).to_frame(
-        run_name)
+    return Series(report_data.coco_eval.eval).rename(
+        index={COCO_EVAL_SPICE_COLUMN: EvalColumns.SPICE}).append(
+        extra_means).to_frame(run_name)
 
 
 def _add_metric_pages(html_file, run_output_paths, report_config, data_frame):
