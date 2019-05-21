@@ -268,25 +268,23 @@ def create_report(report_data_list, report_config):
     """
     output_paths = OutputPaths(report_config.out_dir)
     data_frame = _create_main_data_frame(report_data_list)
-    _create_image_reports(output_paths, data_frame)
     with open(output_paths.report_index_path, 'w') as report_index_file:
-        _add_all_run_pairs_metric_pages(
-            report_index_file, output_paths, report_config, data_frame,
-            report_data_list)
         _add_all_runs_table(report_index_file, data_frame, report_data_list)
         #_add_all_runs__metric_pages(report_index_file, output_paths,
         #                            report_config, data_frame)
+        _add_all_run_pairs_metric_pages(
+            report_index_file, output_paths, data_frame, report_data_list)
         _add_single_run_metric_pages(
             report_index_file, output_paths, report_config, data_frame,
             report_data_list)
         _add_unlabeled_images(report_index_file, output_paths.image_dir)
+    _create_image_reports(output_paths, data_frame)
 
 
 def _add_all_run_pairs_metric_pages(
-        report_index_file, output_paths, report_config, data_frame,
-        report_data_list):
-    # type: (IO, OutputPaths, ReportConfig, DataFrame, List[ReportData]) -> None
-    _write_header(report_index_file, 'Reports comparing pairs of runs')
+        report_index_file, output_paths, data_frame, report_data_list):
+    # type: (IO, OutputPaths, DataFrame, List[ReportData]) -> None
+    _write_header(report_index_file, 'Comparison of pairs of runs')
     run_names = data_frame.columns.levels[0]
     if len(run_names) < 2:
         return
@@ -298,8 +296,8 @@ def _add_all_run_pairs_metric_pages(
         pair_output_paths = RunOutputPaths(output_paths, pair_name)
         pair_report_data_list = [report_data_list[i] for i in pair_indexes]
         _add_run_pair_metric_page(
-            report_index_file, pair_output_paths, report_config,
-            pair_name, data_frame[pair_names], pair_report_data_list)
+            report_index_file, pair_output_paths, pair_name,
+            data_frame[pair_names], pair_report_data_list)
 
 
 def _add_single_run_metric_pages(report_index_file, output_paths, report_config,
@@ -315,33 +313,75 @@ def _add_single_run_metric_pages(report_index_file, output_paths, report_config,
 
 
 def _add_run_pair_metric_page(
-        report_index_file, pair_output_paths, report_config, pair_name,
-        pair_data_frame, pair_report_data_list):
-    # type: (IO, RunOutputPaths, ReportConfig, str, DataFrame, List[ReportData]) -> None
+        report_index_file, pair_output_paths, pair_name, pair_data_frame,
+        pair_report_data_list):
+    # type: (IO, RunOutputPaths, str, DataFrame, List[ReportData]) -> None
     pair_index_path = pair_output_paths.index_path
     out_dir = pair_output_paths.output_paths.out_dir
     report_index_file.write('<a href="%s">%s</a><br>\n' % (
         os.path.relpath(pair_index_path, out_dir), pair_name))
     with open(pair_index_path, 'w') as pair_index_file:
         _write_header(pair_index_file, pair_name)
-        _add_run_pair_table(pair_index_file, pair_name, pair_data_frame,
+        _add_run_pair_table(pair_index_file, pair_data_frame,
                             pair_report_data_list)
-        #_add_run_pair_metric_pages(pair_index_file, run_output_paths,
-        #                           report_config, single_run_data_frame)
+        _add_run_pair_metric_pages(pair_index_file, pair_output_paths,
+                                   pair_data_frame)
 
 
-def _add_run_pair_table(html_file, pair_name, pair_data_frame,
-                        pair_report_data_list):
-    # type: (IO, str, DataFrame, List[ReportData]) -> None
+def _add_run_pair_metric_pages(html_file, pair_output_paths, pair_data_frame):
+    # type: (IO, RunOutputPaths, DataFrame) -> None
+    _write_header(html_file, 'Distribution of metric differences (except '
+                             'SPICE-related, which come later below)')
+    run_names = pair_data_frame.columns.levels[0]
+    for column_name in COLUMNS_FOR_HISTOGRAM_NON_SPICE:
+        metric_data = _create_difference_metric_data(
+            run_names, column_name, pair_data_frame)
+        _add_metric_page(html_file, pair_output_paths, metric_data)
+    _write_header(html_file, 'Distribution of SPICE-related metric '
+                             'differences')
+    for column_name in COLUMNS_FOR_HISTOGRAM_SPICE:
+        metric_data = _create_difference_metric_data(
+            run_names, column_name, pair_data_frame)
+        _add_metric_page(html_file, pair_output_paths, metric_data)
+
+
+def _create_difference_metric_data(run_names, column_name, pair_data_frame):
+    # type: (List[str], str, DataFrame) -> MetricData
+    first_run_name = run_names[0]
+    second_run_name = run_names[1]
+    difference_name = '%s_minus_%s' % (first_run_name, second_run_name)
+    difference_column_name = '%s_%s' % (column_name, difference_name)
+    difference_series = (
+            pair_data_frame[first_run_name][column_name] -
+            pair_data_frame[second_run_name][column_name])
+    difference_data_frame = difference_series.to_frame(
+        difference_column_name)  # type: DataFrame
+    valid_difference_data_frame = difference_data_frame.dropna()
+    valid_count = valid_difference_data_frame.count().item()
+    n_bins = _n_bins_from_count(valid_count)
+    _, bins = numpy.histogram(valid_difference_data_frame, bins=n_bins)
+    return MetricData(difference_data_frame, difference_column_name, bins)
+
+
+def _n_bins_from_count(count):
+    # type: (int) -> int
+    if count < 50:
+        return 10
+    if count < 500:
+        return 20
+    return 30
+
+
+def _add_run_pair_table(html_file, pair_data_frame, pair_report_data_list):
+    # type: (IO, DataFrame, List[ReportData]) -> None
     """Write overall measures, from COCOEvalCap.eval."""
     _write_header(html_file, 'Measures over all images')
     run_pair_summary = _create_run_pair_summary(
-        pair_report_data_list, pair_name, pair_data_frame)
+        pair_report_data_list, pair_data_frame)
     html_file.write(run_pair_summary.to_html() + '\n')
 
 
-def _create_run_pair_summary(pair_report_data_list, pair_name,
-                             pair_data_frame):
+def _create_run_pair_summary(pair_report_data_list, pair_data_frame):
     # type(List[ReportData], str, DataFrame) -> DataFrame
     run_names = pair_data_frame.columns.levels[0]
     run_summaries = [
@@ -353,7 +393,7 @@ def _create_run_pair_summary(pair_report_data_list, pair_name,
             run_name + '.means') for run_name in run_names]
     t_test_results = {column: ttest_rel(
         pair_data_frame[run_names[0]][column],
-        pair_data_frame[run_names[1]][column])
+        pair_data_frame[run_names[1]][column], nan_policy='omit')
         for column in ALL_SUMMARY_COLUMNS}
     t_statistics = {
         column: statistic_and_p_value[0] for column, statistic_and_p_value in
@@ -361,8 +401,9 @@ def _create_run_pair_summary(pair_report_data_list, pair_name,
     p_values = {
         column: statistic_and_p_value[1] for column, statistic_and_p_value in
         t_test_results.items()}
-    t_statistic_data_frame = Series(t_statistics).to_frame('t-test statistic')
-    p_value_data_frame = Series(p_values).to_frame('p-value')
+    t_statistic_data_frame = Series(t_statistics).to_frame(
+        't-test statistic (two-tailed)')
+    p_value_data_frame = Series(p_values).to_frame('p-value (two-tailed)')
     return concat(run_summaries + mean_summaries + [
         t_statistic_data_frame, p_value_data_frame], axis=1)
 
@@ -550,10 +591,11 @@ def _write_many_line_breaks(html_file):
     html_file.write('<br>\n' * 100)
 
 
-def _write_sorted_images(metric_file, relative_image_report_dir, sorted_series,
-                         bins):
+def _write_sorted_images(
+        metric_file, relative_image_report_dir, sorted_series, bins):
     # type: (IO, str, Series, numpy.ndarray) -> None
-    bins_start_end = zip(bins[:-1], bins[1:])
+    extended_bins = numpy.concatenate(([numpy.NINF], bins, [numpy.Inf]))
+    bins_start_end = zip(extended_bins[:-1], extended_bins[1:])
     bin_names = ['%.2f_to_%.2f' % (start, end) for (start, end) in
                  bins_start_end]
     _write_header(metric_file, 'Images per bucket')
