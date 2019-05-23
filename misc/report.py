@@ -378,7 +378,8 @@ def _add_run_pair_table(html_file, pair_data_frame, pair_report_data_list):
     _write_header(html_file, 'Measures over all images')
     run_pair_summary = _create_run_pair_summary(
         pair_report_data_list, pair_data_frame)
-    html_file.write(run_pair_summary.to_html() + '\n')
+    html_file.write(
+        run_pair_summary.to_html(float_format=lambda x: '%.6f' % x) + '\n')
 
 
 def _create_run_pair_summary(pair_report_data_list, pair_data_frame):
