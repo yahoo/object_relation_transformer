@@ -8,7 +8,7 @@ plt.switch_backend('Agg')
 from matplotlib.figure import Figure
 from pandas import DataFrame, Series, concat
 from pandas.io.json import json_normalize
-from typing import IO, Optional, Dict, List
+from typing import IO, Optional, Dict, List, Iterable
 from scipy.stats import ttest_rel
 from six.moves import cPickle as pickle
 sys.path.append("coco-caption")
@@ -20,6 +20,7 @@ RESULT_KEY_CAPTION = 'caption'
 GROUND_TRUTH_KEY_CAPTION = 'caption'
 PREDICTION_KEY_IMAGE_ID = 'image_id'
 PREDICTION_KEY_FILE_PATH = 'file_path'
+MIN_FLOAT_TO_PRINT = 1e-4
 # In COCOEvalCAP.eval, the SPICE metric has a different name than in
 # COCOEvalCAP.imgToEval, so we record it here so we can map it to the same
 # value later.
@@ -379,7 +380,7 @@ def _add_run_pair_table(html_file, pair_data_frame, pair_report_data_list):
     run_pair_summary = _create_run_pair_summary(
         pair_report_data_list, pair_data_frame)
     html_file.write(
-        run_pair_summary.to_html(float_format=lambda x: '%.6f' % x) + '\n')
+        run_pair_summary.to_html(float_format=_table_float_format) + '\n')
 
 
 def _create_run_pair_summary(pair_report_data_list, pair_data_frame):
@@ -396,6 +397,10 @@ def _create_run_pair_summary(pair_report_data_list, pair_data_frame):
         pair_data_frame[run_names[0]][column],
         pair_data_frame[run_names[1]][column], nan_policy='omit')
         for column in ALL_SUMMARY_COLUMNS}
+    sample_size = {column: _count_paired_sample_size(
+        pair_data_frame[run_names[0]][column],
+        pair_data_frame[run_names[1]][column])
+        for column in ALL_SUMMARY_COLUMNS}
     t_statistics = {
         column: statistic_and_p_value[0] for column, statistic_and_p_value in
         t_test_results.items()}
@@ -405,8 +410,17 @@ def _create_run_pair_summary(pair_report_data_list, pair_data_frame):
     t_statistic_data_frame = Series(t_statistics).to_frame(
         't-test statistic (two-tailed)')
     p_value_data_frame = Series(p_values).to_frame('p-value (two-tailed)')
+    sample_size_data_frame = Series(sample_size).to_frame(
+        't-test sample size')
     return concat(run_summaries + mean_summaries + [
-        t_statistic_data_frame, p_value_data_frame], axis=1)
+        t_statistic_data_frame, p_value_data_frame,
+        sample_size_data_frame], axis=1)
+
+
+def _count_paired_sample_size(first, second):
+    # type: (Iterable[float], Iterable[float]) -> int
+    return sum(1 for f, s in zip(first, second) if (
+            numpy.isfinite(f) and numpy.isfinite(s)))
 
 
 def _add_single_run_metric_page(
@@ -503,7 +517,7 @@ def _create_image_report(output_paths, image_data_frame, image_id):
             image_report_file.write(ground_truth_caption + '<br>\n')
         _write_header(image_report_file, 'Metrics')
         image_report_file.write(
-            image_data_frame.to_html(float_format=lambda x: '%.6f' % x))
+            image_data_frame.to_html(float_format=_table_float_format))
 
 
 def _copy_and_write_image(image_report_file, image_dir_for_html,
@@ -528,7 +542,8 @@ def _add_all_runs_table(html_file, data_frame, report_data_list):
             report_data, run_name, data_frame[run_name])
         for (report_data, run_name) in zip(report_data_list, run_names)]
     summary_data_frame = concat(summary_list, axis=1)
-    html_file.write(summary_data_frame.to_html() + '\n')
+    html_file.write(
+        summary_data_frame.to_html(float_format=_table_float_format) + '\n')
 
 
 def _create_single_run_summary(report_data, run_name, single_run_data_frame):
@@ -646,7 +661,7 @@ def _print_metric_stats(metric_file, series):
     stats = series.describe()
     _write_header(metric_file, 'Metric stats')
     metric_file.write(stats.to_frame().to_html(
-        float_format=lambda x: '%.6f' % x) + '\n')
+        float_format=_table_float_format) + '\n')
 
 
 def _plot_histogram(data_frame, bins, column_name):
@@ -683,3 +698,11 @@ def _add_unlabeled_images(html_file, image_dir):
 def _write_header(html_file, header):
     # type: (IO, str) -> None
     html_file.write('<h1>%s</h1>\n' % header)
+
+
+def _table_float_format(the_float):
+    # type: (float) -> str
+    if the_float > MIN_FLOAT_TO_PRINT:
+        return '%.6f' % the_float
+    else:
+        return '%g' % the_float
