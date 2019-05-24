@@ -12,6 +12,7 @@ from typing import IO, Optional, Dict, List, Iterable
 from scipy.stats import ttest_rel
 from six.moves import cPickle as pickle
 sys.path.append("coco-caption")
+from pycocoevalcap.eval import COCOEvalCap
 
 HTML_IMAGE_WIDTH_PIXELS = 400
 HTML_IMAGE_ALIGN_LEFT = 'left'
@@ -375,7 +376,7 @@ def _n_bins_from_count(count):
 
 def _add_run_pair_table(html_file, pair_data_frame, pair_report_data_list):
     # type: (IO, DataFrame, List[ReportData]) -> None
-    """Write overall measures, from COCOEvalCap.eval."""
+    """Write overall measures from a pair of runs into a table."""
     _write_header(html_file, 'Measures over all images')
     run_pair_summary = _create_run_pair_summary(
         pair_report_data_list, pair_data_frame)
@@ -442,7 +443,7 @@ def _add_single_run_metric_page(
 def _add_single_run_table(
         html_file, run_name, single_run_data_frame, report_data):
     # type: (IO, str, DataFrame, ReportData) -> None
-    """Write overall measures, from COCOEvalCap.eval."""
+    """Write measures from a single run into a table."""
     _write_header(html_file, 'Measures over all images')
     single_run_summary = _create_single_run_summary(
             report_data, run_name, single_run_data_frame)
@@ -534,7 +535,7 @@ def _copy_and_write_image(image_report_file, image_dir_for_html,
 
 def _add_all_runs_table(html_file, data_frame, report_data_list):
     # type: (IO, DataFrame, List[ReportData]) -> None
-    """Write overall measures, from COCOEvalCap.eval."""
+    """Write overall measures into a table."""
     _write_header(html_file, 'Measures over all images')
     run_names = data_frame.columns.levels[0]
     summary_list = [
