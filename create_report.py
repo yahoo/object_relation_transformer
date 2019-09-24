@@ -1,12 +1,21 @@
 #!/usr/bin/env python2
-# Usage example:
-# ./create_report.py --help
-# ./create_report.py --pickle eval_results/fc_transformer_bu_adaptive_test_coco_eval.pkl --out_dir reports/test_dir
 #
-# After creating the report by using the commands above, you can set up the
-# server to serve it using something like the following commands.
-# cd reports/
-# python -m SimpleHTTPServer 8888
+# Usage examples
+# ==============
+#
+# Print the help message:
+# $ ./create_report.py --help
+#
+# Create a report based on a single run:
+# $ ./create_report.py  --pickle eval_results/fc_transformer_bu_adaptive_test_report_data.pkl  --out_dir reports/single_run/
+#
+# Create the report containing results from two runs:
+# $ ./create_report.py  --pickle transformer_results/fc_transformer_bu_adaptive_test_report_data.pkl relation_transformer_results/fc_transformer_bu_adaptive_test_report_data.pkl  --run_names transformer relation_transformer  --out_dir reports/two_runs/
+#
+# After creating the report by using the commands above, you can set up a
+# server to view it using something like the following commands:
+# $ cd reports/
+# $ python -m SimpleHTTPServer 8888
 import argparse
 from misc.report import create_report, ReportConfig, ReportData
 from datetime import datetime

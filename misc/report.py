@@ -272,8 +272,6 @@ def create_report(report_data_list, report_config):
     data_frame = _create_main_data_frame(report_data_list)
     with open(output_paths.report_index_path, 'w') as report_index_file:
         _add_all_runs_table(report_index_file, data_frame, report_data_list)
-        #_add_all_runs__metric_pages(report_index_file, output_paths,
-        #                            report_config, data_frame)
         _add_all_run_pairs_metric_pages(
             report_index_file, output_paths, data_frame, report_data_list)
         _add_single_run_metric_pages(
