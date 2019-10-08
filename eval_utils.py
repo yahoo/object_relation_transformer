@@ -5,7 +5,6 @@ from __future__ import print_function
 import torch
 import torch.nn as nn
 
-from six.moves import cPickle as pickle
 import numpy as np
 import json
 from json import encoder
@@ -15,19 +14,20 @@ import time
 import os
 import sys
 import misc.utils as utils
+from misc.report import ReportData
 
-COCO_EVAL_PKL_FILE_TEMPLATE = '%s_%s_coco_eval.pkl'
+REPORT_DATA_PKL_FILE_TEMPLATE = '%s_%s_report_data.pkl'
 
 
 import opts
 #model_opts = opts.parse_opt()
 #use_box=True
-def language_eval(dataset, preds, model_id, split):
+def language_eval(dataset, preds, model_id, image_root, split):
     import sys
     sys.path.append("coco-caption")
     annFile = 'coco-caption/annotations/captions_val2014.json'
     from pycocotools.coco import COCO
-    from pycocoevalcap.eval import COCOEvalCap
+    from misc.correct_coco_eval_cap import CorrectCOCOEvalCap
 
     # encoder.FLOAT_REPR = lambda o: format(o, '.3f')
 
@@ -45,14 +45,16 @@ def language_eval(dataset, preds, model_id, split):
     json.dump(preds_filt, open(cache_path, 'w')) # serialize to temporary json file. Sigh, COCO API...
 
     cocoRes = coco.loadRes(cache_path)
-    cocoEval = COCOEvalCap(coco, cocoRes)
+    cocoEval = CorrectCOCOEvalCap(coco, cocoRes)
     cocoEval.params['image_id'] = cocoRes.getImgIds()
     cocoEval.evaluate()
 
-    # Save cocoEval into a pickle to be used later for visualization.
-    pickle_file_name = COCO_EVAL_PKL_FILE_TEMPLATE % (model_id, split)
+    # Save cocoEval and any other relevant information into a pickle to be used
+    # later for generating a report and visualizing results.
+    report_data = ReportData(cocoEval, preds, image_root, model_id, split)
+    pickle_file_name = REPORT_DATA_PKL_FILE_TEMPLATE % (model_id, split)
     pickle_path = os.path.join(results_dir, pickle_file_name)
-    save_coco_eval_pkl(cocoEval, pickle_path)
+    report_data.save_to_pickle(pickle_path)
 
     # create output dictionary
     out = {}
@@ -137,7 +139,8 @@ def eval_split(model, crit, loader, eval_kwargs={}):
 
         for k, sent in enumerate(sents):
             image_id = data['infos'][k]['id']
-            entry = {'image_id': image_id, 'caption': sent}
+            entry = {'image_id': image_id, 'caption': sent,
+                     'file_path': data['infos'][k]['file_path']}
             if eval_kwargs.get('dump_path', 0) == 1:
                 entry['file_name'] = data['infos'][k]['file_path']
             predictions.append(entry)
@@ -168,15 +171,9 @@ def eval_split(model, crit, loader, eval_kwargs={}):
 
     lang_stats = None
     if lang_eval == 1:
-        lang_stats = language_eval(dataset, predictions, eval_kwargs['id'], split)
+        lang_stats = language_eval(dataset, predictions, eval_kwargs['id'],
+                                   eval_kwargs['image_root'], split)
 
     # Switch back to training mode
     model.train()
     return loss_sum/loss_evals, predictions, lang_stats
-
-
-def save_coco_eval_pkl(cocoEval, pickle_path):
-    """Save cocoEval into a pickle file so that we can create visualizations
-    for it later."""
-    with open(pickle_path, 'wb') as pickle_file:
-        pickle.dump(cocoEval, pickle_file)
