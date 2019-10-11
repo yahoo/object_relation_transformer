@@ -3,14 +3,14 @@
 This is a PyTorch implementation of the Object Relation Transformer published in NeurIPS 2019. You can find the ArXiv version of the paper [here](https://arxiv.org/abs/1906.05963). This repository is largely based on code from Ruotian Luo's Transformer Captioning GitHub repo, which can be found [here](https://github.com/ruotianluo/Transformer_Captioning). 
 
 The primary additions are as follows:
-- Relation transformer model
-- Create reports for runs on MSCOCO
+* Relation transformer model
+* Create reports for runs on MSCOCO
 
 
 ## Requirements
-Python 2.7 (because there is no [coco-caption](https://github.com/tylin/coco-caption) version for python 3)
-PyTorch 0.4+ (along with torchvision)
-cider (already added as a submodule)
+* Python 2.7 (because there is no [coco-caption](https://github.com/tylin/coco-caption) version for python 3)
+* PyTorch 0.4+ (along with torchvision)
+* cider (already added as a submodule)
 
 ## License 
 
@@ -38,6 +38,13 @@ Then run:
 $ python scripts/prepro_labels.py --input_json data/dataset_coco.json --output_json data/cocotalk.json --output_h5 data/cocotalk
 ```
 `prepro_labels.py` will map all words that occur <= 5 times to a special `UNK` token, and create a vocabulary for all the remaining words. The image information and vocabulary are dumped into `data/cocotalk.json` and discretized caption data are dumped into `data/cocotalk_label.h5`.
+
+Next run:
+```
+$ python scripts/prepro_ngrams.py --input_json ../dataset_coco.json --dict_json data/cocotalk.json --output_pkl data/coco-train --split train
+```
+
+This will preprocess the dataset and get the cache for calculating cider score.
 
 
 ### Download the COCO dataset and pre-extract the image features [KAB - IS THIS NECESSARY FOR OUR PAPER???]
@@ -91,23 +98,21 @@ To resume training, you can specify `--start_from` option to be the path saving 
 
 If you have tensorflow, the loss histories are automatically dumped into `--checkpoint_path`, and can be visualized using tensorboard.
 
-The current command use scheduled sampling, you can also set scheduled_sampling_start to -1 to turn off scheduled sampling.
+The current command uses scheduled sampling. You can also set scheduled_sampling_start to -1 to disable it.
 
 If you'd like to evaluate BLEU/METEOR/CIDEr scores during training in addition to validation cross entropy loss, use `--language_eval 1` option, but don't forget to download the [coco-caption code](https://github.com/tylin/coco-caption) into `coco-caption` directory.
 
 For more options, see `opts.py`. 
 
-**A few notes on training.** To give you an idea, with the default settings one epoch of MS COCO images is about 11000 iterations. After 1 epoch of training results in validation loss ~2.5 and CIDEr score of ~0.68. By iteration 60,000 CIDEr climbs up to about ~0.84 (validation loss at about 2.4 (under scheduled sampling)).
+The above training script should achieve a CIDEr-D score of about 1.15 [KAB VERIFY THIS NUMBER].
 
 
 ### Self-critical RL training
 
-First you should preprocess the dataset and get the cache for calculating cider score:
-```
-$ python scripts/prepro_ngrams.py --input_json .../dataset_coco.json --dict_json data/cocotalk.json --output_pkl data/coco-train --split train
-```
+After training using cross-entropy loss, additional self-critical training produces signficant gains in CIDEr-D score.
 
-Then, copy the model from the pretrained model using cross entropy. (It's not mandatory to copy the model, just for back-up)
+
+First, copy the model from the pretrained model using cross entropy. (It's not mandatory to copy the model, just for back-up)
 ```
 $ bash scripts/copy_model.sh fc fc_rl
 ```
@@ -117,33 +122,17 @@ Then
 $ python train.py --id fc_rl --caption_model fc --input_json data/cocotalk.json --input_fc_dir data/cocotalk_fc --input_att_dir data/cocotalk_att --input_label_h5 data/cocotalk_label.h5 --batch_size 10 --learning_rate 5e-5 --start_from log_fc_rl --checkpoint_path log_fc_rl --save_checkpoint_every 6000 --language_eval 1 --val_images_use 5000 --self_critical_after 30
 ```
 
-You will see a huge boost on Cider score, : ).
-
-**A few notes on training.** Starting self-critical training after 30 epochs, the CIDEr score goes up to 1.05 after 600k iterations (including the 30 epochs pertraining).
-
+The above training script should achieve a CIDEr-D score of about 1.28.
 
 
 ### Evaluate on Karpathy's test split
 
 ```bash
-$ python eval.py --dump_images 0 --num_images 5000 --model model.pth --infos_path infos.pkl --language_eval 1 
+$ python eval.py --dump_images 0 --num_images 5000 --model model.pth --infos_path infos.pkl --language_eval 1 --beam_size 5 --split test
 ```
-
-The default split to evaluate is test. The default inference method is greedy decoding (`--sample_max 1`), to sample from the posterior, set `--sample_max 0`.
-
-**Beam Search**. Beam search can increase the performance of the search for greedy decoding sequence by ~5%. However, this is a little more expensive. To turn on the beam search, use `--beam_size N`, N should be greater than 1.
-
-## Miscellanea
-**Using cpu**. The code is currently defaultly using gpu; there is even no option for switching. If someone highly needs a cpu model, please open an issue; I can potentially create a cpu checkpoint and modify the eval.py to run the model on cpu. However, there's no point using cpu to train the model.
-
-**Train on other dataset**. It should be trivial to port if you can create a file like `dataset_coco.json` for your own dataset.
-
-**Live demo**. Not supported now. Welcome pull request.
-
 
 
 ## Visualization
-
 
 ### Visualize caption predictions
 Place all your images of interest into a folder, e.g. `images`, and run
@@ -171,38 +160,9 @@ The script takes as input one or more pickle files containing results from runs 
 If more than one pickle file with results is provided as input, the script will also generate a report containing a comparison between the metrics generated by each pair of methods.
 
 
+## Results
 
-
-
-
-# Self-critical Sequence Training for Image Captioning (+ misc.)
-
-This repository includes the unofficial implementation [Self-critical Sequence Training for Image Captioning](https://arxiv.org/abs/1612.00563) and [Bottom-Up and Top-Down Attention for Image Captioning and Visual Question Answering](https://arxiv.org/abs/1707.07998).
-
-
-
-
-(**Skip if you are using bottom-up feature**): If you want to use resnet to extract image features, you need to download pretrained resnet model for both training and evaluation. The models can be downloaded from [here](https://drive.google.com/open?id=0B7fNdx_jAqhtbVYzOURMdDNHSGM), and should be placed in `data/imagenet_weights`.
-
-## Pretrained models (using resnet101 feature)
-Pretrained models are provided [here](https://drive.google.com/open?id=0B7fNdx_jAqhtdE1JRXpmeGJudTg). And the performances of each model will be maintained in this [issue](https://github.com/ruotianluo/neuraltalk2.pytorch/issues/10).
-
-If you want to do evaluation only, you can then follow [this section](#generate-image-captions) after downloading the pretrained models (and also the pretrained resnet101).
-
-## Train your own network on COCO
-
-
-
-
-
-
-
-
-
-
-
-
-
+The following are results from the paper that should be obtained by running the respective commands in `neurips_training_runs.sh`. As learning rate scheduling was not fully optimized, these values should only serve as a reference/expectation rather than what can be achieved with additional tuning.
 
 
 
