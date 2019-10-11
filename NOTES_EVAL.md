@@ -39,5 +39,5 @@ $ cd vis
 $ python -m SimpleHTTPServer [PORT_NUMBER]
 ```
 
-## Xperiments
+## Experiments
 List of experimental results - [here](https://docs.google.com/spreadsheets/d/1RrXkE85hihVLJH__khewEJhelNPEAqQ5wpxEZw0C5fQ/edit?usp=sharing)

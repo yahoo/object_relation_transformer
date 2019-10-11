@@ -21,11 +21,11 @@ Object Relation Transformer is released under XXXX License (refer to LICENSE fil
 
 ### Download ResNet101 weights for feature extraction
 
-Download the weights for ResNet101 (the file `resnet101.pth`) from [here](https://drive.google.com/drive/folders/0B7fNdx_jAqhtbVYzOURMdDNHSGM). Copy the weights to a folder `imagenet_weights` within the data folder:
+Download the file `resnet101.pth` from [here](https://drive.google.com/drive/folders/0B7fNdx_jAqhtbVYzOURMdDNHSGM). Copy the weights to a folder `imagenet_weights` within the data folder:
 
 ```
 mkdir data/imagenet_weights
-cp /path/to/resenet/weights/resnet101.pth data/imagenet_weights
+cp /path/to/downloaded/weights/resnet101.pth data/imagenet_weights
 ```
 
 ### Download and preprocess the COCO captions
@@ -49,7 +49,23 @@ This will preprocess the dataset and get the cache for calculating cider score.
 
 ### Download the COCO dataset and pre-extract the image features [KAB - IS THIS NECESSARY FOR OUR PAPER???]
 
-Download the [COCO images](http://mscoco.org/dataset/#download) from the MSCOCO website. We need 2014 training images and 2014 validation images. You should put the `train2014/` and `val2014/` folders in the same directory, denoted as `$IMAGE_ROOT`.
+Download the [COCO images](http://mscoco.org/dataset/#download) from the MSCOCO website. 
+We need 2014 training images and 2014 validation images. You should put the `train2014/` and `val2014/` folders in the same directory, denoted as `$IMAGE_ROOT`:
+
+```
+mkdir $IMAGE_ROOT
+pushd $IMAGE_ROOT
+wget http://images.cocodataset.org/zips/train2014.zip
+unzip train2014.zip
+wget http://images.cocodataset.org/zips/val2014.zip
+unzip val2014.zip
+popd
+wget https://msvocds.blob.core.windows.net/images/262993_z.jpg
+mv 262993_z.jpg $IMAGE_ROOT/train2014/COCO_train2014_000000167126.jpg
+```
+
+The last two commands are needed to address an issue with a corrupted image in the MSCOCO dataset (see [here](https://github.com/karpathy/neuraltalk2/issues/4)). The prepro script will fail otherwise.
+
 
 Then run:
 
@@ -57,12 +73,9 @@ Then run:
 $ python scripts/prepro_feats.py --input_json data/dataset_coco.json --output_dir data/cocotalk --images_root $IMAGE_ROOT
 ```
 
-`prepro_feats.py` extracts the resnet101 features (both fc feature and last conv feature) of each image. The features are saved in `data/cocotalk_fc` and `data/cocotalk_att`, and resulting files are about 200GB.
+`prepro_feats.py` extracts the ResNet101 features (both fc feature and last conv feature) of each image. The features are saved in `data/cocotalk_fc` and `data/cocotalk_att`, and resulting files are about 200GB.
 
-(Check the prepro scripts for more options, like other resnet models or other attention sizes.)
-
-**Warning**: the prepro script will fail with the default MSCOCO data because one of their images is corrupted. See [this issue](https://github.com/karpathy/neuraltalk2/issues/4) for the fix, it involves manually replacing one image in the dataset.
-
+(Check the prepro scripts for more options, like other ResNet models or other attention sizes.)
 
 ### Download the Bottom-up features 
 
