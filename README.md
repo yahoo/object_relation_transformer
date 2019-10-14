@@ -4,11 +4,11 @@ This is a PyTorch implementation of the Object Relation Transformer published in
 
 The primary additions are as follows:
 * Relation transformer model
-* Create reports for runs on MSCOCO
+* Script to create reports for runs on MSCOCO
 
 
 ## Requirements
-* Python 2.7 (because there is no [coco-caption](https://github.com/tylin/coco-caption) version for python 3)
+* Python 2.7 (because there is no [coco-caption](https://github.com/tylin/coco-caption) version for Python 3)
 * PyTorch 0.4+ (along with torchvision)
 * cider (already added as a submodule)
 
@@ -97,12 +97,20 @@ python script/make_bu_data.py --output_dir data/cocobu
 This will create `data/cocobu_fc`, `data/cocobu_att` and `data/cocobu_box`. 
 
 
+### Generate the relative bounding box coordinates for the Relation Transformer
+
+Run the following:
+```
+python scripts/prepro_bbox_relative_coords.py --input_json data/dataset_coco.json --input_box_dir data/cocobu_box --output_dir data/cocobu_box_relative --image_root $IMAGE_ROOT
+```
+
+
 ## Model Training and Evaluation
 
 ### Standard cross-entropy loss training
 
-```bash
-$ python train.py --id fc --caption_model fc --input_json data/cocotalk.json --input_fc_dir data/cocotalk_fc --input_att_dir data/cocotalk_att --input_label_h5 data/cocotalk_label.h5 --batch_size 10 --learning_rate 5e-4 --learning_rate_decay_start 0 --scheduled_sampling_start 0 --checkpoint_path log_fc --save_checkpoint_every 6000 --val_images_use 5000 --max_epochs 30
+```
+python train.py --id relation_transformer_bu --caption_model relation_transformer --input_json data/cocotalk.json --input_fc_dir data/cocobu_fc --input_att_dir data/cocobu_att --input_box_dir data/cocobu_box --input_rel_box_dir data/cocobu_box_relative --input_label_h5 data/cocotalk_label.h5 --checkpoint_path log_transformer_bu --noamopt --noamopt_warmup 10000 --label_smoothing 0.0 --batch_size 15 --beam_size 1 --learning_rate 5e-4 --num_layers 6 --input_encoding_size 512 --rnn_size 2048 --learning_rate_decay_start 0 --scheduled_sampling_start 0 --save_checkpoint_every 6000 --language_eval 1 --val_images_use 5000 --max_epochs 30 --use_box 1
 ```
 
 The train script will dump checkpoints into the folder specified by `--checkpoint_path` (default = `save/`). We only save the best-performing checkpoint on validation and the latest checkpoint to save disk space.
@@ -127,12 +135,13 @@ After training using cross-entropy loss, additional self-critical training produ
 
 First, copy the model from the pretrained model using cross entropy. (It's not mandatory to copy the model, just for back-up)
 ```
-$ bash scripts/copy_model.sh fc fc_rl
+$ bash scripts/copy_model.sh relation_transformer_bu relation_transformer_bu_rl
 ```
 
-Then
-```bash
-$ python train.py --id fc_rl --caption_model fc --input_json data/cocotalk.json --input_fc_dir data/cocotalk_fc --input_att_dir data/cocotalk_att --input_label_h5 data/cocotalk_label.h5 --batch_size 10 --learning_rate 5e-5 --start_from log_fc_rl --checkpoint_path log_fc_rl --save_checkpoint_every 6000 --language_eval 1 --val_images_use 5000 --self_critical_after 30
+Then:
+
+```
+python train.py --id relation_transformer_bu_rl --caption_model relation_transformer --input_json data/cocotalk.json --input_fc_dir data/cocobu_fc --input_att_dir data/cocobu_att --input_label_h5 data/cocotalk_label.h5  --input_box_dir data/cocobu_box --input_rel_box_dir data/cocobu_box_relative --input_label_h5 data/cocotalk_label.h5 --checkpoint_path log_transformer_bu_rl --label_smoothing 0.0 --batch_size 10 --beam_size 1 --learning_rate 5e-4 --num_layers 6 --input_encoding_size 512 --rnn_size 2048 --learning_rate_decay_start 0 --scheduled_sampling_start 0 --start_from log_transformer_bu_rl --save_checkpoint_every 6000 --language_eval 1 --val_images_use 5000 --self_critical_after 30 --max_epochs 60 --use_box 1
 ```
 
 The above training script should achieve a CIDEr-D score of about 1.28.
@@ -140,7 +149,7 @@ The above training script should achieve a CIDEr-D score of about 1.28.
 
 ### Evaluate on Karpathy's test split
 
-```bash
+```
 $ python eval.py --dump_images 0 --num_images 5000 --model model.pth --infos_path infos.pkl --language_eval 1 --beam_size 5 --split test
 ```
 
@@ -151,13 +160,13 @@ $ python eval.py --dump_images 0 --num_images 5000 --model model.pth --infos_pat
 Place all your images of interest into a folder, e.g. `images`, and run
 the eval script:
 
-```bash
+```
 $ python eval.py --model model.pth --infos_path infos.pkl --image_folder images --num_images 10
 ```
 
 This tells the `eval` script to run up to 10 images from the given folder. If you have a big GPU you can speed up the evaluation by increasing `batch_size`. Use `--num_images -1` to process all images. The eval script will create an `vis.json` file inside the `vis` folder, which can then be visualized with the provided HTML interface:
 
-```bash
+```
 $ cd vis
 $ python -m SimpleHTTPServer
 ```
@@ -175,11 +184,16 @@ If more than one pickle file with results is provided as input, the script will 
 
 ## Results
 
-The following are results from the paper that should be obtained by running the respective commands in `neurips_training_runs.sh`. As learning rate scheduling was not fully optimized, these values should only serve as a reference/expectation rather than what can be achieved with additional tuning.
+The following are results from the paper on the Karpathy test split that should be obtained by running the respective commands in `neurips_training_runs.sh`. As learning rate scheduling was not fully optimized, these values should only serve as a reference/expectation rather than what can be achieved with additional tuning.
 
 
-
-
+Algorithm | CIDEr-D |SPICE | BLEU-1 | BLEU-4 | METEOR | ROUGE-L 
+:-- | :--: | :--: | :--: | :--: | :--: | :--: 
+Up-Down + LSTM | 106.6 | 19.9 | 75.6 | 32.9 | 26.5 | 55.4 
+Up-Down + Transformer | 111.0 | 20.9 | 75.0 | 32.8 | 27.5 | 55.6 
+Up-Down + Object Relation Transformer | 112.6 | 20.8 | 75.6 |33.5 |27.6 | 56.0 
+Up-Down + Object Relation Transformer + Beamsize 2 | 115.4 | 21.2 | 76.6 | 35.5 | 28.0 | 56.6 
+Up-Down + Object Relation Transformer + Self-Critical + Beamsize 5 | 128.3 | 22.6 | 80.5 | 38.6 | 28.7 | 58.4 
 
 ## Citation
 
