@@ -11,6 +11,8 @@ The primary additions are as follows:
 * Python 2.7 (because there is no [coco-caption](https://github.com/tylin/coco-caption) version for Python 3)
 * PyTorch 0.4+ (along with torchvision)
 * cider (already added as a submodule)
+* h5py
+* scikit-image
 
 ## License 
 
@@ -41,7 +43,7 @@ $ python scripts/prepro_labels.py --input_json data/dataset_coco.json --output_j
 
 Next run:
 ```
-$ python scripts/prepro_ngrams.py --input_json ../dataset_coco.json --dict_json data/cocotalk.json --output_pkl data/coco-train --split train
+$ python scripts/prepro_ngrams.py --input_json data/dataset_coco.json --dict_json data/cocotalk.json --output_pkl data/coco-train --split train
 ```
 
 This will preprocess the dataset and get the cache for calculating cider score.
