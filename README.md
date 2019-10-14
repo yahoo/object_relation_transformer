@@ -47,7 +47,7 @@ $ python scripts/prepro_ngrams.py --input_json ../dataset_coco.json --dict_json 
 This will preprocess the dataset and get the cache for calculating cider score.
 
 
-### Download the COCO dataset and pre-extract the image features [KAB - IS THIS NECESSARY FOR OUR PAPER???]
+### Download the COCO dataset and pre-extract the image features
 
 Download the [COCO images](http://mscoco.org/dataset/#download) from the MSCOCO website. 
 We need 2014 training images and 2014 validation images. You should put the `train2014/` and `val2014/` folders in the same directory, denoted as `$IMAGE_ROOT`:
