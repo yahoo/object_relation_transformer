@@ -84,7 +84,7 @@ Download the pre-extracted features from [here](https://github.com/peteanderson8
 Do the following:
 ```
 mkdir data/bu_data; cd data/bu_data
-wget https://storage.googleapis.com/bottom-up-attention/trainval.zip
+wget https://imagecaption.blob.core.windows.net/imagecaption/trainval.zip
 unzip trainval.zip
 
 ```
