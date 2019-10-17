@@ -75,7 +75,7 @@ Then run:
 $ python scripts/prepro_feats.py --input_json data/dataset_coco.json --output_dir data/cocotalk --images_root $IMAGE_ROOT
 ```
 
-`prepro_feats.py` extracts the ResNet101 features (both fc feature and last conv feature) of each image. The features are saved in `data/cocotalk_fc` and `data/cocotalk_att`, and resulting files are about 200GB.
+`prepro_feats.py` extracts the ResNet101 features (both fc feature and last conv feature) of each image. The features are saved in `data/cocotalk_fc` and `data/cocotalk_att`, and resulting files are about 200GB. Running this script may take a day or more, depending on hardware.
 
 (Check the prepro scripts for more options, like other ResNet models or other attention sizes.)
 
@@ -105,7 +105,7 @@ Run the following:
 ```
 python scripts/prepro_bbox_relative_coords.py --input_json data/dataset_coco.json --input_box_dir data/cocobu_box --output_dir data/cocobu_box_relative --image_root $IMAGE_ROOT
 ```
-
+This should take a couple hours or so, depending on hardware.
 
 ## Model Training and Evaluation
 
