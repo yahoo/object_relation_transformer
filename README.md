@@ -90,7 +90,7 @@ wget https://storage.googleapis.com/bottom-up-attention/trainval.zip
 unzip trainval.zip
 
 ```
-
+The .zip file is around 22 GB.
 Then return to the base directory and run:
 ```
 python scripts/make_bu_data.py --output_dir data/cocobu
