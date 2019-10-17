@@ -91,9 +91,9 @@ unzip trainval.zip
 
 ```
 
-Then run:
+Then return to the base directory and run:
 ```
-python script/make_bu_data.py --output_dir data/cocobu
+python scripts/make_bu_data.py --output_dir data/cocobu
 ```
 
 This will create `data/cocobu_fc`, `data/cocobu_att` and `data/cocobu_box`. 
