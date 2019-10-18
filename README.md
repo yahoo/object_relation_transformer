@@ -13,6 +13,7 @@ The primary additions are as follows:
 * cider (already added as a submodule)
 * h5py
 * scikit-image
+* typing
 
 ## License 
 
