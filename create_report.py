@@ -16,6 +16,12 @@
 # server to view it using something like the following commands:
 # $ cd reports/
 # $ python -m SimpleHTTPServer 8888
+#
+############
+# Copyright 2019 Oath Inc.
+# Licensed under the terms of the MIT license.
+# Please see LICENSE file in the project root for terms.
+############
 import argparse
 from misc.report import create_report, ReportConfig, ReportData
 from datetime import datetime
