@@ -49,12 +49,13 @@ def language_eval(dataset, preds, model_id, image_root, split):
     cocoEval.params['image_id'] = cocoRes.getImgIds()
     cocoEval.evaluate()
 
-    # Save cocoEval and any other relevant information into a pickle to be used
-    # later for generating a report and visualizing results.
-    report_data = ReportData(cocoEval, preds, image_root, model_id, split)
-    pickle_file_name = REPORT_DATA_PKL_FILE_TEMPLATE % (model_id, split)
-    pickle_path = os.path.join(results_dir, pickle_file_name)
-    report_data.save_to_pickle(pickle_path)
+    if image_root:
+        # Save cocoEval and any other relevant information into a pickle to be used
+        # later for generating a report and visualizing results.
+        report_data = ReportData(cocoEval, preds, image_root, model_id, split)
+        pickle_file_name = REPORT_DATA_PKL_FILE_TEMPLATE % (model_id, split)
+        pickle_path = os.path.join(results_dir, pickle_file_name)
+        report_data.save_to_pickle(pickle_path)
 
     # create output dictionary
     out = {}
@@ -171,8 +172,8 @@ def eval_split(model, crit, loader, eval_kwargs={}):
 
     lang_stats = None
     if lang_eval == 1:
-        lang_stats = language_eval(dataset, predictions, eval_kwargs['id'],
-                                   eval_kwargs['image_root'], split)
+        lang_stats = language_eval(dataset, predictions, eval_kwargs.get('id'),
+                                   eval_kwargs.get('image_root'), split)
 
     # Switch back to training mode
     model.train()
