@@ -1,3 +1,7 @@
+############
+# Copyright 2019 Oath Inc.
+# Licensed under the terms of the MIT license.
+# Please see LICENSE file in the project root for terms.
 ######################
 # The commands below should be used to run inference for different
 # models on the MSCOCO dataset, as well as to generate the
