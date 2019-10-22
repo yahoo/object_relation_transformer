@@ -10,17 +10,18 @@ The primary additions are as follows:
 ## Requirements
 * Python 2.7 (because there is no [coco-caption](https://github.com/tylin/coco-caption) version for Python 3)
 * PyTorch 0.4+ (along with torchvision)
-* cider (already added as a submodule).
+* [cider](https://github.com/ruotianluo/cider.git) (already added as a submodule). See `.gitmodules` and clone the referenced repo into
+  the `object_relation_transformer` folder.  
 * The [coco-caption](https://github.com/tylin/coco-caption) library,
   which is used for generating different evaluation metrics. To set it
-  up, clone the repo into the ```object_relation_transformer```
+  up, clone the repo into the `object_relation_transformer`
   folder. Make sure to keep the cloned repo folder name as
-  ```coco-caption``` and also to run the ```get_stanford_models.sh```
+  `coco-caption` and also to run the `get_stanford_models.sh`
   script from within that repo.
 
 ## License 
 
-Object Relation Transformer is released under XXXX License (refer to LICENSE file for details).
+Object Relation Transformer is released under MIT license (refer to LICENSE file for details).
 
 
 ## Data Preparation

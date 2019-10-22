@@ -1,3 +1,8 @@
+##########################################################
+# Copyright 2019 Oath Inc.
+# Licensed under the terms of the MIT license.
+# Please see LICENSE file in the project root for terms.
+##########################################################
 # This file contains Att2in2, AdaAtt, AdaAttMO, TopDown model
 
 # AdaAtt is from Knowing When to Look: Adaptive Attention via A Visual Sentinel for Image Captioning
