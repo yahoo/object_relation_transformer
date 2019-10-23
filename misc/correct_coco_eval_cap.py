@@ -1,6 +1,8 @@
+##########################################################
 # Copyright 2019 Oath Inc.
 # Licensed under the terms of the MIT license.
 # Please see LICENSE file in the project root for terms.
+##########################################################
 import sys
 sys.path.append("coco-caption")
 from pycocoevalcap.eval import COCOEvalCap

@@ -35,8 +35,7 @@ e.g.: python eval.py \
         --input_box_dir /mydisk/data/captioning_data/cocobu_adaptive_box \
         --input_rel_box_dir=/mydisk/data/captioning_data/cocobu_adaptive_box_relative/ \
         --input_label_h5 /mydisk/data/captioning_data/cocotalk_label.h5  \
-        --use_box 1
-        --language_eval=1
+        --language_eval 1
 '''
 
 
