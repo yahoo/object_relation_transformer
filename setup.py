@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Package setup file for python module vision.logo
+Package setup file for python module object_relation_transformer
 """
 import os
 import setuptools
