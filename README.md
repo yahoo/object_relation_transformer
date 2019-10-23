@@ -10,6 +10,9 @@ The primary additions are as follows:
 ## Requirements
 * Python 2.7 (because there is no [coco-caption](https://github.com/tylin/coco-caption) version for Python 3)
 * PyTorch 0.4+ (along with torchvision)
+* h5py
+* scikit-image
+* typing
 * [cider](https://github.com/ruotianluo/cider.git) (already added as a submodule). See `.gitmodules` and clone the referenced repo into
   the `object_relation_transformer` folder.  
 * The [coco-caption](https://github.com/tylin/coco-caption) library,
@@ -45,7 +48,7 @@ $ python scripts/prepro_labels.py --input_json data/dataset_coco.json --output_j
 
 Next run:
 ```
-$ python scripts/prepro_ngrams.py --input_json ../dataset_coco.json --dict_json data/cocotalk.json --output_pkl data/coco-train --split train
+$ python scripts/prepro_ngrams.py --input_json data/dataset_coco.json --dict_json data/cocotalk.json --output_pkl data/coco-train --split train
 ```
 
 This will preprocess the dataset and get the cache for calculating cider score.
@@ -77,7 +80,7 @@ Then run:
 $ python scripts/prepro_feats.py --input_json data/dataset_coco.json --output_dir data/cocotalk --images_root $IMAGE_ROOT
 ```
 
-`prepro_feats.py` extracts the ResNet101 features (both fc feature and last conv feature) of each image. The features are saved in `data/cocotalk_fc` and `data/cocotalk_att`, and resulting files are about 200GB.
+`prepro_feats.py` extracts the ResNet101 features (both fc feature and last conv feature) of each image. The features are saved in `data/cocotalk_fc` and `data/cocotalk_att`, and resulting files are about 200GB. Running this script may take a day or more, depending on hardware.
 
 (Check the prepro scripts for more options, like other ResNet models or other attention sizes.)
 
@@ -92,10 +95,10 @@ wget https://imagecaption.blob.core.windows.net/imagecaption/trainval.zip
 unzip trainval.zip
 
 ```
-
-Then run:
+The .zip file is around 22 GB.
+Then return to the base directory and run:
 ```
-python script/make_bu_data.py --output_dir data/cocobu
+python scripts/make_bu_data.py --output_dir data/cocobu
 ```
 
 This will create `data/cocobu_fc`, `data/cocobu_att` and `data/cocobu_box`. 
@@ -107,6 +110,8 @@ Run the following:
 ```
 python scripts/prepro_bbox_relative_coords.py --input_json data/dataset_coco.json --input_box_dir data/cocobu_box --output_dir data/cocobu_box_relative --image_root $IMAGE_ROOT
 ```
+This should take a couple hours or so, depending on hardware.
+
 
 ## Model Training and Evaluation
 
@@ -171,7 +176,6 @@ the eval script:
 
 ```
 $ python eval.py --dump_images 1 --num_images 10 --model log_relation_transformer_bu/model.pth --infos_path log_relation_transformer_bu/infos_relation_transformer_bu-best.pkl --image_root $IMAGE_ROOT --input_json data/cocotalk.json --input_label_h5 data/cocotalk_label.h5  --input_fc_dir data/cocobu_fc --input_att_dir data/cocobu_att --input_box_dir data/cocobu_box --input_rel_box_dir data/cocobu_box_relative
-
 ```
 
 This tells the `eval` script to run up to 10 images from the given folder. If you have a big GPU you can speed up the evaluation by increasing `batch_size`. Use `--num_images -1` to process all images. The eval script will create an `vis.json` file inside the `vis` folder, which can then be visualized with the provided HTML interface:
