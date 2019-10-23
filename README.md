@@ -1,6 +1,6 @@
 # Object Relation Transformer
 
-This is a PyTorch implementation of the Object Relation Transformer published in NeurIPS 2019. You can find the ArXiv version of the paper [here](https://arxiv.org/abs/1906.05963). This repository is largely based on code from Ruotian Luo's Transformer Captioning GitHub repo, which can be found [here](https://github.com/ruotianluo/Transformer_Captioning). 
+This is a PyTorch implementation of the Object Relation Transformer published in NeurIPS 2019. You can find the ArXiv version of the paper [here](https://arxiv.org/abs/1906.05963). This repository is largely based on code from Ruotian Luo's Self-critical Sequence Training for Image Captioning GitHub repo, which can be found [here](https://github.com/ruotianluo/self-critical.pytorch). 
 
 The primary additions are as follows:
 * Relation transformer model
@@ -10,14 +10,18 @@ The primary additions are as follows:
 ## Requirements
 * Python 2.7 (because there is no [coco-caption](https://github.com/tylin/coco-caption) version for Python 3)
 * PyTorch 0.4+ (along with torchvision)
-* cider (already added as a submodule)
 * h5py
 * scikit-image
 * typing
+* [cider](https://github.com/ruotianluo/cider.git) (already added as a submodule). See `.gitmodules` and clone the referenced repo into
+  the `object_relation_transformer` folder.  
+* The [coco-caption](https://github.com/tylin/coco-caption) library,
+  which is used for generating different evaluation metrics. To set it
+  up, clone the repo into the `object_relation_transformer`
+  folder. Make sure to keep the cloned repo folder name as
+  `coco-caption` and also to run the `get_stanford_models.sh`
+  script from within that repo.
 
-## License 
-
-Object Relation Transformer is released under XXXX License (refer to LICENSE file for details).
 
 
 ## Data Preparation
@@ -87,7 +91,7 @@ Download the pre-extracted features from [here](https://github.com/peteanderson8
 Do the following:
 ```
 mkdir data/bu_data; cd data/bu_data
-wget https://storage.googleapis.com/bottom-up-attention/trainval.zip
+wget https://imagecaption.blob.core.windows.net/imagecaption/trainval.zip
 unzip trainval.zip
 
 ```
@@ -108,12 +112,13 @@ python scripts/prepro_bbox_relative_coords.py --input_json data/dataset_coco.jso
 ```
 This should take a couple hours or so, depending on hardware.
 
+
 ## Model Training and Evaluation
 
 ### Standard cross-entropy loss training
 
 ```
-python train.py --id relation_transformer_bu --caption_model relation_transformer --input_json data/cocotalk.json --input_fc_dir data/cocobu_fc --input_att_dir data/cocobu_att --input_box_dir data/cocobu_box --input_rel_box_dir data/cocobu_box_relative --input_label_h5 data/cocotalk_label.h5 --checkpoint_path log_relation_transformer_bu --noamopt --noamopt_warmup 10000 --label_smoothing 0.0 --batch_size 15 --beam_size 1 --learning_rate 5e-4 --num_layers 6 --input_encoding_size 512 --rnn_size 2048 --learning_rate_decay_start 0 --scheduled_sampling_start 0 --save_checkpoint_every 6000 --language_eval 1 --val_images_use 5000 --max_epochs 30 --use_box 1
+python train.py --id relation_transformer_bu --caption_model relation_transformer --input_json data/cocotalk.json --input_fc_dir data/cocobu_fc --input_att_dir data/cocobu_att --input_box_dir data/cocobu_box --input_rel_box_dir data/cocobu_box_relative --input_label_h5 data/cocotalk_label.h5 --checkpoint_path log_relation_transformer_bu --noamopt --noamopt_warmup 10000 --label_smoothing 0.0 --batch_size 15 --learning_rate 5e-4 --num_layers 6 --input_encoding_size 512 --rnn_size 2048 --learning_rate_decay_start 0 --scheduled_sampling_start 0 --save_checkpoint_every 6000 --language_eval 1 --val_images_use 5000 --max_epochs 30 --use_box 1
 ```
 
 The train script will dump checkpoints into the folder specified by `--checkpoint_path` (default = `save/`). We only save the best-performing checkpoint on validation and the latest checkpoint to save disk space.
@@ -129,7 +134,7 @@ If you'd like to evaluate BLEU/METEOR/CIDEr scores during training in addition t
 For more options, see `opts.py`. 
 
 
-The above training script should achieve a CIDEr-D score of about 1.15.
+The above training script should achieve a CIDEr-D score of about 115.
 
 
 ### Self-critical RL training
@@ -145,18 +150,23 @@ $ bash scripts/copy_model.sh relation_transformer_bu relation_transformer_bu_rl
 Then:
 
 ```
-python train.py --id relation_transformer_bu_rl --caption_model relation_transformer --input_json data/cocotalk.json --input_fc_dir data/cocobu_fc --input_att_dir data/cocobu_att --input_label_h5 data/cocotalk_label.h5  --input_box_dir data/cocobu_box --input_rel_box_dir data/cocobu_box_relative --input_label_h5 data/cocotalk_label.h5 --checkpoint_path log_relation_transformer_bu_rl --label_smoothing 0.0 --batch_size 10 --beam_size 1 --learning_rate 5e-4 --num_layers 6 --input_encoding_size 512 --rnn_size 2048 --learning_rate_decay_start 0 --scheduled_sampling_start 0 --start_from log_relation_transformer_bu_rl --save_checkpoint_every 6000 --language_eval 1 --val_images_use 5000 --self_critical_after 30 --max_epochs 60 --use_box 1
+python train.py --id relation_transformer_bu_rl --caption_model relation_transformer --input_json data/cocotalk.json --input_fc_dir data/cocobu_fc --input_att_dir data/cocobu_att --input_label_h5 data/cocotalk_label.h5  --input_box_dir data/cocobu_box --input_rel_box_dir data/cocobu_box_relative --input_label_h5 data/cocotalk_label.h5 --checkpoint_path log_relation_transformer_bu_rl --label_smoothing 0.0 --batch_size 10 --learning_rate 5e-4 --num_layers 6 --input_encoding_size 512 --rnn_size 2048 --learning_rate_decay_start 0 --scheduled_sampling_start 0 --start_from log_transformer_bu_rl --save_checkpoint_every 6000 --language_eval 1 --val_images_use 5000 --self_critical_after 30 --max_epochs 60 --use_box 1
 ```
 
-The above training script should achieve a CIDEr-D score of about 1.28.
-
+The above training script should achieve a CIDEr-D score of about 128.
 
 ### Evaluate on Karpathy's test split
+To evaluate the cross-entropy model, run:
 
 ```
-$ python eval.py --dump_images 0 --num_images 5000 --model model.pth --infos_path infos.pkl --language_eval 1 --beam_size 5 --split test
-```
+python eval.py --dump_images 0 --num_images 5000 --model log_relation_transformer_bu/model.pth --infos_path log_relation_transformer_bu/infos_relation_transformer_bu-best.pkl --image_root $IMAGE_ROOT --input_json data/cocotalk.json --input_label_h5 data/cocotalk_label.h5  --input_fc_dir data/cocobu_fc --input_att_dir data/cocobu_att --input_box_dir data/cocobu_box --input_rel_box_dir data/cocobu_box_relative --use_box 1 --language_eval 1
+``` 
 
+and for cross-entropy+RL run:
+
+```
+python eval.py --dump_images 0 --num_images 5000 --model log_relation_transformer_bu_rl/model.pth --infos_path log_relation_transformer_bu_rl/infos_relation_transformer_bu-best.pkl --image_root $IMAGE_ROOT --input_json data/cocotalk.json --input_label_h5 data/cocotalk_label.h5  --input_fc_dir data/cocobu_fc --input_att_dir data/cocobu_att --input_box_dir data/cocobu_box --input_rel_box_dir data/cocobu_box_relative --language_eval 1
+``` 
 
 ## Visualization
 
@@ -165,7 +175,7 @@ Place all your images of interest into a folder, e.g. `images`, and run
 the eval script:
 
 ```
-$ python eval.py --model model.pth --infos_path infos.pkl --image_folder images --num_images 10
+$ python eval.py --dump_images 1 --num_images 10 --model log_relation_transformer_bu/model.pth --infos_path log_relation_transformer_bu/infos_relation_transformer_bu-best.pkl --image_root $IMAGE_ROOT --input_json data/cocotalk.json --input_label_h5 data/cocotalk_label.h5  --input_fc_dir data/cocobu_fc --input_att_dir data/cocobu_att --input_box_dir data/cocobu_box --input_rel_box_dir data/cocobu_box_relative
 ```
 
 This tells the `eval` script to run up to 10 images from the given folder. If you have a big GPU you can speed up the evaluation by increasing `batch_size`. Use `--num_images -1` to process all images. The eval script will create an `vis.json` file inside the `vis` folder, which can then be visualized with the provided HTML interface:
@@ -195,9 +205,16 @@ Algorithm | CIDEr-D |SPICE | BLEU-1 | BLEU-4 | METEOR | ROUGE-L
 :-- | :--: | :--: | :--: | :--: | :--: | :--: 
 Up-Down + LSTM | 106.6 | 19.9 | 75.6 | 32.9 | 26.5 | 55.4 
 Up-Down + Transformer | 111.0 | 20.9 | 75.0 | 32.8 | 27.5 | 55.6 
-Up-Down + Object Relation Transformer | 112.6 | 20.8 | 75.6 |33.5 |27.6 | 56.0 
+ | 112.6 | 20.8 | 75.6 |33.5 |27.6 | 56.0 
 Up-Down + Object Relation Transformer + Beamsize 2 | 115.4 | 21.2 | 76.6 | 35.5 | 28.0 | 56.6 
 Up-Down + Object Relation Transformer + Self-Critical + Beamsize 5 | 128.3 | 22.6 | 80.5 | 38.6 | 28.7 | 58.4 
+
+In addition, in the paper we also present a head-to-head comparison of the Object Relation Transformer against the "Up-Down + Transformer" model. (Results from the latter model are also included in the table above). 
+In the paper, we refer to this latter model as "Baseline Transformer", as it does not make use of geometry in its attention definition. The idea of the head-to-head comparison is to better understand the improvement 
+obtained by adding geometric attention to the Transformer, both quantitatively and qualitatively. The comparison consists of a set of evaluation metrics computed for each model on a per-image basis, as well as aggregated over all images. 
+It includes the results of paired t-tests, which test for statistically significant differences between the evaluation metrics resulting from each of the models. This comparison can be generated by running the commands in 
+[neurips_report_comands.sh](neurips_report_comands.sh). The commands first run the two aforementioned models on the MSCOCO test set and then generate the corresponding report containing the complete comparative analysis.
+
 
 ## Citation
 
@@ -213,6 +230,23 @@ If you find this repo useful, please consider citing (no obligation at all):
 ```
 
 Of course, please cite the original paper of models you are using (You can find references in the model files).
+
+## Contribute
+
+Please refer to [the contributing.md file](Contributing.md) for information about how to get involved. We welcome issues, questions, and pull requests. Pull Requests are welcome.
+
+## Maintainers
+
+Kofi Boakye: kaboakye@verizonmedia.com
+
+Simao Herdade: sherdade@verizonmedia.com
+
+Joao Soares: jvbsoares@verizonmedia.com
+
+## License
+
+This project is licensed under the terms of the MIT open source license. Please refer to [LICENSE](LICENSE) for the full terms.
+
 
 ## Acknowledgments
 
