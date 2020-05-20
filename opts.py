@@ -143,6 +143,9 @@ def parse_opt():
     parser.add_argument('--reduce_on_plateau', action='store_true',
                     help='')
 
+    parser.add_argument("--legacy_extra_skip", type=bool, default=False, 
+                        help=("true only for certain legacy models that have an "
+                              "extra skip connection"))
     #Relative geometry
     parser.add_argument("--box_trignometric_embedding", type=bool, default=True)
     #parser.add_argument('--input_rel_box_dir',type=str, default='/data/captioning_data/cocobu_adaptive_box_relative/',
