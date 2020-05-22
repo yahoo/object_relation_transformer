@@ -143,8 +143,12 @@ def parse_opt():
     parser.add_argument('--reduce_on_plateau', action='store_true',
                     help='')
 
+    parser.add_argument("--legacy_extra_skip", type=str2bool, default=False,
+                        help=("true only for certain legacy models that have an "
+                              "extra skip connection"))
     #Relative geometry
-    parser.add_argument("--box_trignometric_embedding", type=bool, default=True)
+    parser.add_argument("--box_trignometric_embedding", type=str2bool,
+                        default=True)
     #parser.add_argument('--input_rel_box_dir',type=str, default='/data/captioning_data/cocobu_adaptive_box_relative/',
     #                help="this directory contains the bboxes in relative coordinates for the corresponding image features in --input_att_dir")
 
@@ -165,3 +169,12 @@ def parse_opt():
     assert args.train_only == 0 or args.train_only == 1, "language_eval should be 0 or 1"
 
     return args
+
+
+def str2bool(v):
+    if v.lower() in ('true', '1'):
+        return True
+    elif v.lower() in ('false', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')

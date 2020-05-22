@@ -248,12 +248,13 @@ class BoxMultiHeadedAttention(nn.Module):
     Following the paper "Relation Networks for Object Detection" in https://arxiv.org/pdf/1711.11575.pdf
     '''
 
-    def __init__(self, h, d_model, trignometric_embedding= True, dropout=0.1):
+    def __init__(self, h, d_model, trignometric_embedding=True, legacy_extra_skip=False, dropout=0.1):
         "Take in model size and number of heads."
         super(BoxMultiHeadedAttention, self).__init__()
 
         assert d_model % h == 0
         self.trignometric_embedding=trignometric_embedding
+        self.legacy_extra_skip = legacy_extra_skip
 
         # We assume d_v always equals d_k
         self.h = h
@@ -300,6 +301,13 @@ class BoxMultiHeadedAttention(nn.Module):
         # 3) "Concat" using a view and apply a final linear.
         x = x.transpose(1, 2).contiguous() \
              .view(nbatches, -1, self.h * self.d_k)
+
+        # An extra internal skip connection is added. This is only
+        # kept here for compatibility with some legacy models. In
+        # general, there is no advantage in using it, as there is
+        # already an outer skip connection surrounding this layer.
+        if self.legacy_extra_skip:
+            x = input_value + x
 
         return self.linears[-1](x)
 
@@ -349,10 +357,11 @@ class PositionalEncoding(nn.Module):
 class RelationTransformerModel(CaptionModel):
 
     def make_model(self, src_vocab, tgt_vocab, N=6,
-               d_model=512, d_ff=2048, h=8, dropout=0.1, trignometric_embedding=True ):
+                   d_model=512, d_ff=2048, h=8, dropout=0.1, 
+                   trignometric_embedding=True, legacy_extra_skip=False):
         "Helper: Construct a model from hyperparameters."
         c = copy.deepcopy
-        bbox_attn = BoxMultiHeadedAttention(h, d_model, trignometric_embedding)
+        bbox_attn = BoxMultiHeadedAttention(h, d_model, trignometric_embedding, legacy_extra_skip)
         attn = MultiHeadedAttention(h, d_model)
         ff = PositionwiseFeedForward(d_model, d_ff, dropout)
         position = PositionalEncoding(d_model, dropout)
@@ -406,14 +415,15 @@ class RelationTransformerModel(CaptionModel):
                                     nn.Dropout(self.drop_prob_lm))+
                                     ((nn.BatchNorm1d(self.input_encoding_size),) if self.use_bn==2 else ())))
 
-        self.box_trignometric_embedding = opt.box_trignometric_embedding
+        self.box_trignometric_embedding = getattr(opt, 'box_trignometric_embedding', True)
+        self.legacy_extra_skip = getattr(opt, 'legacy_extra_skip', False)
 
         tgt_vocab = self.vocab_size + 1
-        self.model = self.make_model(0, tgt_vocab,
-            N=opt.num_layers,
-            d_model=opt.input_encoding_size,
+        self.model = self.make_model(
+            0, tgt_vocab, N=opt.num_layers, d_model=opt.input_encoding_size,
             d_ff=opt.rnn_size,
-            trignometric_embedding=self.box_trignometric_embedding)
+            trignometric_embedding=self.box_trignometric_embedding,
+            legacy_extra_skip=self.legacy_extra_skip)
 
     # def init_hidden(self, bsz):
     #     weight = next(self.parameters())
@@ -452,7 +462,7 @@ class RelationTransformerModel(CaptionModel):
             # crop the last one
             seq = seq[:,:-1]
             seq_mask = (seq.data > 0)
-            seq_mask[:,0] += 1
+            seq_mask[:,0] = 1
 
             seq_mask = seq_mask.unsqueeze(-2)
             seq_mask = seq_mask & subsequent_mask(seq.size(-1)).to(seq_mask)
