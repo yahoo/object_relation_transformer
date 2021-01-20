@@ -1,6 +1,6 @@
 # Object Relation Transformer
 
-This is a PyTorch implementation of the Object Relation Transformer published in NeurIPS 2019. You can find the paper [here](https://papers.nips.cc/paper/9293-image-captioning-transforming-objects-into-words.pdf). This repository is largely based on code from Ruotian Luo's Self-critical Sequence Training for Image Captioning GitHub repo, which can be found [here](https://github.com/ruotianluo/self-critical.pytorch). 
+This is a PyTorch implementation of the Object Relation Transformer published in NeurIPS 2019. You can find the paper [here](https://papers.nips.cc/paper/9293-image-captioning-transforming-objects-into-words.pdf). This repository is largely based on code from Ruotian Luo's Self-critical Sequence Training for Image Captioning GitHub repo, which can be found [here](https://github.com/ruotianluo/self-critical.pytorch).
 
 The primary additions are as follows:
 * Relation transformer model
@@ -13,6 +13,8 @@ The primary additions are as follows:
 * h5py
 * scikit-image
 * typing
+* pyemd
+* gensim
 * [cider](https://github.com/ruotianluo/cider.git) (already added as a submodule). See `.gitmodules` and clone the referenced repo into
   the `object_relation_transformer` folder.  
 * The [coco-caption](https://github.com/tylin/coco-caption) library,
@@ -56,7 +58,7 @@ This will preprocess the dataset and get the cache for calculating cider score.
 
 ### Download the COCO dataset and pre-extract the image features
 
-Download the [COCO images](http://mscoco.org/dataset/#download) from the MSCOCO website. 
+Download the [COCO images](http://mscoco.org/dataset/#download) from the MSCOCO website.
 We need 2014 training images and 2014 validation images. You should put the `train2014/` and `val2014/` folders in the same directory, denoted as `$IMAGE_ROOT`:
 
 ```
@@ -84,7 +86,7 @@ $ python scripts/prepro_feats.py --input_json data/dataset_coco.json --output_di
 
 (Check the prepro scripts for more options, like other ResNet models or other attention sizes.)
 
-### Download the Bottom-up features 
+### Download the Bottom-up features
 
 Download the pre-extracted features from [here](https://github.com/peteanderson80/bottom-up-attention). For the paper, the adaptive features were used.
 
@@ -101,7 +103,7 @@ Then return to the base directory and run:
 python scripts/make_bu_data.py --output_dir data/cocobu
 ```
 
-This will create `data/cocobu_fc`, `data/cocobu_att` and `data/cocobu_box`. 
+This will create `data/cocobu_fc`, `data/cocobu_att` and `data/cocobu_box`.
 
 
 ### Generate the relative bounding box coordinates for the Relation Transformer
@@ -131,7 +133,7 @@ The current command uses scheduled sampling. You can also set scheduled_sampling
 
 If you'd like to evaluate BLEU/METEOR/CIDEr scores during training in addition to validation cross entropy loss, use `--language_eval 1` option, but don't forget to download the [coco-caption code](https://github.com/tylin/coco-caption) into `coco-caption` directory.
 
-For more options, see `opts.py`. 
+For more options, see `opts.py`.
 
 
 The above training script should achieve a CIDEr-D score of about 115.
@@ -160,13 +162,13 @@ To evaluate the cross-entropy model, run:
 
 ```
 python eval.py --dump_images 0 --num_images 5000 --model log_relation_transformer_bu/model.pth --infos_path log_relation_transformer_bu/infos_relation_transformer_bu-best.pkl --image_root $IMAGE_ROOT --input_json data/cocotalk.json --input_label_h5 data/cocotalk_label.h5  --input_fc_dir data/cocobu_fc --input_att_dir data/cocobu_att --input_box_dir data/cocobu_box --input_rel_box_dir data/cocobu_box_relative --use_box 1 --language_eval 1
-``` 
+```
 
 and for cross-entropy+RL run:
 
 ```
 python eval.py --dump_images 0 --num_images 5000 --model log_relation_transformer_bu_rl/model.pth --infos_path log_relation_transformer_bu_rl/infos_relation_transformer_bu-best.pkl --image_root $IMAGE_ROOT --input_json data/cocotalk.json --input_label_h5 data/cocotalk_label.h5  --input_fc_dir data/cocobu_fc --input_att_dir data/cocobu_att --input_box_dir data/cocobu_box --input_rel_box_dir data/cocobu_box_relative --language_eval 1
-``` 
+```
 
 ## Visualization
 
@@ -198,32 +200,32 @@ If more than one pickle file with results is provided as input, the script will 
 
 ## Model Zoo and Results
 
-The table below presents links to our pre-trained models, as well as results from our paper on the Karpathy test 
-split. Similar results should be obtained by running the respective commands in 
-[neurips_training_runs.sh](neurips_training_runs.sh). As learning rate scheduling was not fully optimized, these 
+The table below presents links to our pre-trained models, as well as results from our paper on the Karpathy test
+split. Similar results should be obtained by running the respective commands in
+[neurips_training_runs.sh](neurips_training_runs.sh). As learning rate scheduling was not fully optimized, these
 values should only serve as a reference/expectation rather than what can be achieved with additional tuning.
 
-The models are Copyright Verizon Media, licensed under the terms of the CC-BY-4.0 license. See associated 
+The models are Copyright Verizon Media, licensed under the terms of the CC-BY-4.0 license. See associated
 [license file](LICENSE-CC-BY-4.md).
 
-Algorithm | CIDEr-D |SPICE | BLEU-1 | BLEU-4 | METEOR | ROUGE-L 
-:-- | :--: | :--: | :--: | :--: | :--: | :--: 
-[Up-Down + LSTM](http://wpc.D89ED.chicdn.net/00D89ED/object_relation_transformer/models/log_topdown_bu.zip) * | 106.6 | 19.9 | 75.6 | 32.9 | 26.5 | 55.4 
-[Up-Down + Transformer](http://wpc.D89ED.chicdn.net/00D89ED/object_relation_transformer/models/log_transformer_bu.zip) | 111.0 | 20.9 | 75.0 | 32.8 | 27.5 | 55.6 
-[Up-Down + Object Relation Transformer](http://wpc.D89ED.chicdn.net/00D89ED/object_relation_transformer/models/log_relation_transformer_bu.zip) | 112.6 | 20.8 | 75.6 |33.5 |27.6 | 56.0 
-[Up-Down + Object Relation Transformer](http://wpc.D89ED.chicdn.net/00D89ED/object_relation_transformer/models/log_relation_transformer_bu.zip) + Beamsize 2 | 115.4 | 21.2 | 76.6 | 35.5 | 28.0 | 56.6 
-[Up-Down + Object Relation Transformer + Self-Critical](http://wpc.D89ED.chicdn.net/00D89ED/object_relation_transformer/models/log_relation_transformer_bu_rl.zip) + Beamsize 5 | 128.3 | 22.6 | 80.5 | 38.6 | 28.7 | 58.4 
+Algorithm | CIDEr-D |SPICE | BLEU-1 | BLEU-4 | METEOR | ROUGE-L
+:-- | :--: | :--: | :--: | :--: | :--: | :--:
+[Up-Down + LSTM](http://wpc.D89ED.chicdn.net/00D89ED/object_relation_transformer/models/log_topdown_bu.zip) * | 106.6 | 19.9 | 75.6 | 32.9 | 26.5 | 55.4
+[Up-Down + Transformer](http://wpc.D89ED.chicdn.net/00D89ED/object_relation_transformer/models/log_transformer_bu.zip) | 111.0 | 20.9 | 75.0 | 32.8 | 27.5 | 55.6
+[Up-Down + Object Relation Transformer](http://wpc.D89ED.chicdn.net/00D89ED/object_relation_transformer/models/log_relation_transformer_bu.zip) | 112.6 | 20.8 | 75.6 |33.5 |27.6 | 56.0
+[Up-Down + Object Relation Transformer](http://wpc.D89ED.chicdn.net/00D89ED/object_relation_transformer/models/log_relation_transformer_bu.zip) + Beamsize 2 | 115.4 | 21.2 | 76.6 | 35.5 | 28.0 | 56.6
+[Up-Down + Object Relation Transformer + Self-Critical](http://wpc.D89ED.chicdn.net/00D89ED/object_relation_transformer/models/log_relation_transformer_bu_rl.zip) + Beamsize 5 | 128.3 | 22.6 | 80.5 | 38.6 | 28.7 | 58.4
 
-\* Note that the pre-trained Up-Down + LSTM model above produces slightly better results than 
-reported, as it came from a different training run. We kept the older LSTM results in the table above for consistency 
+\* Note that the pre-trained Up-Down + LSTM model above produces slightly better results than
+reported, as it came from a different training run. We kept the older LSTM results in the table above for consistency
 with our paper.
 
 ### Comparative Analysis
 
-In addition, in the paper we also present a head-to-head comparison of the Object Relation Transformer against the "Up-Down + Transformer" model. (Results from the latter model are also included in the table above). 
-In the paper, we refer to this latter model as "Baseline Transformer", as it does not make use of geometry in its attention definition. The idea of the head-to-head comparison is to better understand the improvement 
-obtained by adding geometric attention to the Transformer, both quantitatively and qualitatively. The comparison consists of a set of evaluation metrics computed for each model on a per-image basis, as well as aggregated over all images. 
-It includes the results of paired t-tests, which test for statistically significant differences between the evaluation metrics resulting from each of the models. This comparison can be generated by running the commands in 
+In addition, in the paper we also present a head-to-head comparison of the Object Relation Transformer against the "Up-Down + Transformer" model. (Results from the latter model are also included in the table above).
+In the paper, we refer to this latter model as "Baseline Transformer", as it does not make use of geometry in its attention definition. The idea of the head-to-head comparison is to better understand the improvement
+obtained by adding geometric attention to the Transformer, both quantitatively and qualitatively. The comparison consists of a set of evaluation metrics computed for each model on a per-image basis, as well as aggregated over all images.
+It includes the results of paired t-tests, which test for statistically significant differences between the evaluation metrics resulting from each of the models. This comparison can be generated by running the commands in
 [neurips_report_comands.sh](neurips_report_commands.sh). The commands first run the two aforementioned models on the MSCOCO test set and then generate the corresponding report containing the complete comparative analysis.
 
 
@@ -244,10 +246,10 @@ Of course, please cite the original paper of models you are using (you can find 
 
 ## Contribute
 
-Please refer to [the contributing.md file](Contributing.md) for information about how to get involved. We welcome 
+Please refer to [the contributing.md file](Contributing.md) for information about how to get involved. We welcome
 issues, questions, and pull requests.
 
-Please be aware that we (the maintainers) are currently busy with other projects, so it make take some days before we 
+Please be aware that we (the maintainers) are currently busy with other projects, so it make take some days before we
 are able to get back to you. We do not foresee big changes to this repository going forward.
 
 ## Maintainers
@@ -265,4 +267,4 @@ This project is licensed under the terms of the MIT open source license. Please 
 
 ## Acknowledgments
 
-Thanks to [Ruotian Luo](https://github.com/ruotianluo) for the original code. 
+Thanks to [Ruotian Luo](https://github.com/ruotianluo) for the original code.

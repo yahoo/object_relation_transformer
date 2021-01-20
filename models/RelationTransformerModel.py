@@ -357,7 +357,7 @@ class PositionalEncoding(nn.Module):
 class RelationTransformerModel(CaptionModel):
 
     def make_model(self, src_vocab, tgt_vocab, N=6,
-                   d_model=512, d_ff=2048, h=8, dropout=0.1, 
+                   d_model=512, d_ff=2048, h=8, dropout=0.1,
                    trignometric_embedding=True, legacy_extra_skip=False):
         "Helper: Construct a model from hyperparameters."
         c = copy.deepcopy
@@ -453,6 +453,7 @@ class RelationTransformerModel(CaptionModel):
 
         att_feats, att_masks = self.clip_att(att_feats, att_masks)
         att_feats = pack_wrapper(self.att_embed, att_feats, att_masks)
+        boxes = self.clip_att(boxes, att_masks)[0]
 
         if att_masks is None:
             att_masks = att_feats.new_ones(att_feats.shape[:2], dtype=torch.long)
