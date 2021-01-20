@@ -7,6 +7,7 @@ import h5py
 import os
 import numpy as np
 import random
+from functools import reduce
 
 import torch
 import torch.utils.data as data
@@ -34,7 +35,7 @@ class DataLoader(data.Dataset):
         self.opt = opt
         self.batch_size = self.opt.batch_size
         self.seq_per_img = opt.seq_per_img
-        
+
         # feature related options
         self.use_att = getattr(opt, 'use_att', True)
         self.use_box = getattr(opt, 'use_box', 0)
@@ -216,14 +217,6 @@ class DataLoader(data.Dataset):
             if self.norm_att_feat:
                 att_feat = att_feat / np.linalg.norm(att_feat, 2, 1, keepdims=True)
             if self.use_box:
-                #BEFORE
-                #box_feat = np.load(os.path.join(self.input_box_dir, str(self.info['images'][ix]['id']) + '.npy'))
-                # devided by image width and height
-                #x1,y1,x2,y2 = np.hsplit(box_feat, 4)
-                #h,w = self.info['images'][ix]['height'], self.info['images'][ix]['width']
-                #box_feat = np.hstack((x1/w, y1/h, x2/w, y2/h, (x2-x1)*(y2-y1)/(w*h))) # question? x2-x1+1??
-
-                #SIMAO
                 box_file = os.path.join(self.rel_bboxes_dir,str(self.info['images'][ix]['id']) + '.npy')
                 box_coords = np.load(box_file)
                 areas = np.expand_dims(utils.get_box_areas(box_coords), axis=1)
@@ -310,7 +303,7 @@ class BlobFetcher():
         if wrapped:
             self.reset()
 
-        #SIMAO
+        #TODO: Double-Check this is correct
         assert tmp[-1] == ix, "ix not equal"
         #assert tmp[2] == ix, "ix not equal"
 
