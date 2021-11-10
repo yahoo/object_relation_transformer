@@ -44,7 +44,7 @@ for infile in infiles:
             item['image_id'] = int(item['image_id'])
             item['num_boxes'] = int(item['num_boxes'])
             for field in ['boxes', 'features']:
-                item[field] = np.frombuffer(base64.decodestring(item[field]), 
+                item[field] = np.frombuffer(base64.decodebytes(item[field].encode('ascii')), 
                         dtype=np.float32).reshape((item['num_boxes'],-1))
             np.savez_compressed(os.path.join(args.output_dir+'_att', str(item['image_id'])), feat=item['features'])
             np.save(os.path.join(args.output_dir+'_fc', str(item['image_id'])), item['features'].mean(0))
