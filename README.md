@@ -15,6 +15,7 @@ The primary additions are as follows:
 * typing
 * pyemd
 * gensim
+* requests
 * [cider](https://github.com/ruotianluo/cider.git) (already added as a submodule). See `.gitmodules` and clone the referenced repo into
   the `object_relation_transformer` folder.  
 * The [coco-caption](https://github.com/tylin/coco-caption) library,
@@ -44,13 +45,13 @@ Download the [preprocessed COCO captions](http://cs.stanford.edu/people/karpathy
 Then run:
 
 ```
-$ python scripts/prepro_labels.py --input_json data/dataset_coco.json --output_json data/cocotalk.json --output_h5 data/cocotalk
+python scripts/prepro_labels.py --input_json data/dataset_coco.json --output_json data/cocotalk.json --output_h5 data/cocotalk
 ```
 `prepro_labels.py` will map all words that occur <= 5 times to a special `UNK` token, and create a vocabulary for all the remaining words. The image information and vocabulary are dumped into `data/cocotalk.json` and discretized caption data are dumped into `data/cocotalk_label.h5`.
 
 Next run:
 ```
-$ python scripts/prepro_ngrams.py --input_json data/dataset_coco.json --dict_json data/cocotalk.json --output_pkl data/coco-train --split train
+python scripts/prepro_ngrams.py --input_json data/dataset_coco.json --dict_json data/cocotalk.json --output_pkl data/coco-train --split train
 ```
 
 This will preprocess the dataset and get the cache for calculating cider score.
@@ -79,7 +80,7 @@ The last two commands are needed to address an issue with a corrupted image in t
 Then run:
 
 ```
-$ python scripts/prepro_feats.py --input_json data/dataset_coco.json --output_dir data/cocotalk --images_root $IMAGE_ROOT
+python scripts/prepro_feats.py --input_json data/dataset_coco.json --output_dir data/cocotalk --images_root $IMAGE_ROOT
 ```
 
 `prepro_feats.py` extracts the ResNet101 features (both fc feature and last conv feature) of each image. The features are saved in `data/cocotalk_fc` and `data/cocotalk_att`, and resulting files are about 200GB. Running this script may take a day or more, depending on hardware.
@@ -146,7 +147,7 @@ After training using cross-entropy loss, additional self-critical training produ
 
 First, copy the model from the pretrained model using cross entropy. (It's not mandatory to copy the model, just for back-up)
 ```
-$ bash scripts/copy_model.sh relation_transformer_bu relation_transformer_bu_rl
+bash scripts/copy_model.sh relation_transformer_bu relation_transformer_bu_rl
 ```
 
 Then:
@@ -177,14 +178,14 @@ Place all your images of interest into a folder, e.g. `images`, and run
 the eval script:
 
 ```
-$ python eval.py --dump_images 1 --num_images 10 --model log_relation_transformer_bu/model.pth --infos_path log_relation_transformer_bu/infos_relation_transformer_bu-best.pkl --image_root $IMAGE_ROOT --input_json data/cocotalk.json --input_label_h5 data/cocotalk_label.h5  --input_fc_dir data/cocobu_fc --input_att_dir data/cocobu_att --input_box_dir data/cocobu_box --input_rel_box_dir data/cocobu_box_relative
+python eval.py --dump_images 1 --num_images 10 --model log_relation_transformer_bu/model.pth --infos_path log_relation_transformer_bu/infos_relation_transformer_bu-best.pkl --image_root $IMAGE_ROOT --input_json data/cocotalk.json --input_label_h5 data/cocotalk_label.h5  --input_fc_dir data/cocobu_fc --input_att_dir data/cocobu_att --input_box_dir data/cocobu_box --input_rel_box_dir data/cocobu_box_relative
 ```
 
 This tells the `eval` script to run up to 10 images from the given folder. If you have a big GPU you can speed up the evaluation by increasing `batch_size`. Use `--num_images -1` to process all images. The eval script will create an `vis.json` file inside the `vis` folder, which can then be visualized with the provided HTML interface:
 
 ```
-$ cd vis
-$ python -m SimpleHTTPServer
+cd vis
+python -m SimpleHTTPServer
 ```
 
 Now visit `localhost:8000` in your browser and you should see your predicted captions.
