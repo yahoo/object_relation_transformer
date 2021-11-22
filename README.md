@@ -15,6 +15,7 @@ The primary additions are as follows:
 * typing
 * pyemd
 * gensim
+* pandas
 * requests
 * [cider](https://github.com/ruotianluo/cider.git) (already added as a submodule). See `.gitmodules` and clone the referenced repo into
   the `object_relation_transformer` folder.  
