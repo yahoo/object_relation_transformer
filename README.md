@@ -211,7 +211,7 @@ values should only serve as a reference/expectation rather than what can be achi
 The models are Copyright Verizon Media, licensed under the terms of the CC-BY-4.0 license. See associated
 [license file](LICENSE-CC-BY-4.md).
 
-| Algorithm                                                          | Model Folder                    | CIDEr-D | SPICE | BLEU-1 | BLEU-4 | METEOR | ROUGE-L |
+| Algorithm&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Model Folder                    | CIDEr-D | SPICE | BLEU-1 | BLEU-4 | METEOR | ROUGE-L |
 |:-------------------------------------------------------------------|:--------------------------------|:-------:|:----:| :--: |:------:|:------:|:-------:|
 | Up-Down + LSTM *                                                   | log_topdown_bu/                 |  106.6  | 19.9 | 75.6 |  32.9  |  26.5  |  55.4   |
 | Up-Down + Transformer                                              | log_transformer_bu/             |  111.0  | 20.9 | 75.0 |  32.8  |  27.5  |  55.6   |
