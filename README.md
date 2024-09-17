@@ -200,21 +200,24 @@ If more than one pickle file with results is provided as input, the script will 
 
 ## Model Zoo and Results
 
-The table below presents links to our pre-trained models, as well as results from our paper on the Karpathy test
-split. Similar results should be obtained by running the respective commands in
+Please find all of our pre-trained models on huggingface:
+[yahoo-inc/object-relation-transformer](https://huggingface.co/yahoo-inc/object-relation-transformer).
+The table below presents results from our paper on the Karpathy test
+split, along with the respective model folders which can be found in the huggingface link above.
+Similar results should be obtained by running the respective commands in
 [neurips_training_runs.sh](neurips_training_runs.sh). As learning rate scheduling was not fully optimized, these
 values should only serve as a reference/expectation rather than what can be achieved with additional tuning.
 
 The models are Copyright Verizon Media, licensed under the terms of the CC-BY-4.0 license. See associated
 [license file](LICENSE-CC-BY-4.md).
 
-Algorithm | CIDEr-D |SPICE | BLEU-1 | BLEU-4 | METEOR | ROUGE-L
-:-- | :--: | :--: | :--: | :--: | :--: | :--:
-[Up-Down + LSTM](http://wpc.D89ED.chicdn.net/00D89ED/object_relation_transformer/models/log_topdown_bu.zip) * | 106.6 | 19.9 | 75.6 | 32.9 | 26.5 | 55.4
-[Up-Down + Transformer](http://wpc.D89ED.chicdn.net/00D89ED/object_relation_transformer/models/log_transformer_bu.zip) | 111.0 | 20.9 | 75.0 | 32.8 | 27.5 | 55.6
-[Up-Down + Object Relation Transformer](http://wpc.D89ED.chicdn.net/00D89ED/object_relation_transformer/models/log_relation_transformer_bu.zip) | 112.6 | 20.8 | 75.6 |33.5 |27.6 | 56.0
-[Up-Down + Object Relation Transformer](http://wpc.D89ED.chicdn.net/00D89ED/object_relation_transformer/models/log_relation_transformer_bu.zip) + Beamsize 2 | 115.4 | 21.2 | 76.6 | 35.5 | 28.0 | 56.6
-[Up-Down + Object Relation Transformer + Self-Critical](http://wpc.D89ED.chicdn.net/00D89ED/object_relation_transformer/models/log_relation_transformer_bu_rl.zip) + Beamsize 5 | 128.3 | 22.6 | 80.5 | 38.6 | 28.7 | 58.4
+| Algorithm                                                          | Model Folder                    | CIDEr-D | SPICE | BLEU-1 | BLEU-4 | METEOR | ROUGE-L |
+|:-------------------------------------------------------------------|:--------------------------------|:-------:|:----:| :--: |:------:|:------:|:-------:|
+| Up-Down + LSTM *                                                   | log_topdown_bu/                 |  106.6  | 19.9 | 75.6 |  32.9  |  26.5  |  55.4   |
+| Up-Down + Transformer                                              | log_transformer_bu/             |  111.0  | 20.9 | 75.0 |  32.8  |  27.5  |  55.6   |
+| Up-Down + Object Relation Transformer                              | log_relation_transformer_bu/    |  112.6  | 20.8 | 75.6 |  33.5  |  27.6  |  56.0   |
+| Up-Down + Object Relation Transformer + Beamsize 2                 | log_relation_transformer_bu/    |  115.4  | 21.2 | 76.6 |  35.5  |  28.0  |  56.6   |
+| Up-Down + Object Relation Transformer + Self-Critical + Beamsize 5 | log_relation_transformer_bu_rl/ |  128.3  | 22.6 | 80.5 |  38.6  |  28.7  |  58.4   |
 
 \* Note that the pre-trained Up-Down + LSTM model above produces slightly better results than
 reported, as it came from a different training run. We kept the older LSTM results in the table above for consistency
