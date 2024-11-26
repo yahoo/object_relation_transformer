@@ -267,7 +267,7 @@ class BoxMultiHeadedAttention(nn.Module):
 
         #matrices W_q, W_k, W_v, and one last projection layer
         self.linears = clones(nn.Linear(d_model, d_model), 4)
-        self.WGs = clones(nn.Linear(geo_feature_dim, 1, bias=True),8)
+        self.WGs = clones(nn.Linear(geo_feature_dim, 1, bias=True), h)
 
         self.attn = None
         self.dropout = nn.Dropout(p=dropout)
